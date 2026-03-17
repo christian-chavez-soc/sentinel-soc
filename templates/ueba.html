@@ -1,0 +1,213 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<title>UEBA - Sentinel SOC</title>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<script src="/static/nav.js"></script>
+<style>
+:root{--bg:#0f1117;--panel:#161b22;--border:#30363d;--accent:#58a6ff;--text:#e6edf3;--subtext:#8b949e;--red:#f85149;--orange:#d29922;--green:#3fb950;--purple:#a371f7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:1.5rem;font-size:13px}
+h1{font-size:1.4rem;font-weight:600;margin-bottom:.25rem}
+.subtitle{color:var(--subtext);font-size:.85rem;margin-bottom:1.5rem}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1rem}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1.25rem}
+.card h2{font-size:.82rem;color:var(--subtext);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.85rem;font-weight:500}
+.stat-card{text-align:center;padding:1rem}
+.stat-value{font-size:2rem;font-weight:700;line-height:1}
+.stat-label{font-size:.72rem;color:var(--subtext);margin-top:.3rem;text-transform:uppercase;letter-spacing:.05em}
+.stat-card.red .stat-value{color:var(--red)}
+.stat-card.orange .stat-value{color:var(--orange)}
+.stat-card.blue .stat-value{color:var(--accent)}
+.stat-card.purple .stat-value{color:var(--purple)}
+/* Anomaly feed */
+.anomaly-item{background:#0d1117;border-left:3px solid var(--red);border-radius:0 6px 6px 0;padding:.65rem .85rem;margin-bottom:.4rem}
+.anomaly-item.MEDIUM{border-left-color:var(--orange)}
+.anomaly-item.LOW{border-left-color:var(--accent)}
+.anomaly-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.2rem}
+.anomaly-title{font-size:.82rem;font-weight:600;color:var(--text)}
+.anomaly-time{font-size:.68rem;color:var(--subtext);font-family:monospace}
+.anomaly-desc{font-size:.75rem;color:var(--subtext);line-height:1.5}
+.sev-badge{padding:.1rem .4rem;border-radius:4px;font-size:.65rem;font-weight:700}
+.sev-HIGH{background:rgba(248,81,73,.18);color:var(--red)}
+.sev-MEDIUM{background:rgba(210,153,34,.18);color:var(--orange)}
+.sev-LOW{background:rgba(88,166,255,.18);color:var(--accent)}
+/* User profiles */
+.user-row{display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;border-radius:6px;border:1px solid var(--border);margin-bottom:.35rem;background:#0d1117}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:#1c3a5e;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:var(--accent);flex-shrink:0}
+.user-info{flex:1}
+.user-name{font-size:.82rem;font-weight:600;color:var(--text)}
+.user-meta{font-size:.7rem;color:var(--subtext);margin-top:.1rem}
+.user-stats{display:flex;gap:.75rem;font-size:.72rem}
+.user-stat{color:var(--subtext)}
+.user-stat b{color:var(--text)}
+.anomaly-count{padding:.12rem .45rem;border-radius:12px;font-size:.68rem;font-weight:700}
+.ac-high{background:rgba(248,81,73,.18);color:var(--red)}
+.ac-med{background:rgba(210,153,34,.18);color:var(--orange)}
+.ac-ok{background:rgba(63,185,80,.18);color:var(--green)}
+/* Bar chart */
+.bar-chart{display:flex;flex-direction:column;gap:.4rem}
+.bar-row{display:flex;align-items:center;gap:.5rem;font-size:.78rem}
+.bar-label{min-width:130px;color:var(--subtext);font-size:.75rem;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;background:#111316;border-radius:3px;height:8px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.bar-count{min-width:24px;color:var(--subtext);font-size:.72rem}
+.empty{text-align:center;padding:2rem;color:var(--subtext);font-size:.82rem}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;margin-right:.4rem}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+<h1>User & Entity Behavior Analytics</h1>
+<p class="subtitle"><span class="live-dot"></span>Real-time behavioral baseline monitoring — detecting anomalous user activity</p>
+
+<div class="grid-4">
+  <div class="card stat-card red"><div class="stat-value" id="s-total">0</div><div class="stat-label">Total Anomalies</div></div>
+  <div class="card stat-card orange"><div class="stat-value" id="s-high">0</div><div class="stat-label">High Severity</div></div>
+  <div class="card stat-card blue"><div class="stat-value" id="s-users">0</div><div class="stat-label">Users Tracked</div></div>
+  <div class="card stat-card purple"><div class="stat-value" id="s-medium">0</div><div class="stat-label">Medium Severity</div></div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Live Anomaly Feed</h2>
+    <div id="anomaly-feed"><div class="empty">No anomalies detected yet — monitoring active events</div></div>
+  </div>
+  <div class="card">
+    <h2>Anomaly Breakdown</h2>
+    <div class="bar-chart" id="anomaly-chart"><div class="empty">Waiting for data...</div></div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>User Behavior Profiles</h2>
+    <div id="user-profiles"><div class="empty">No user profiles built yet</div></div>
+  </div>
+  <div class="card">
+    <h2>Detection Rules Active</h2>
+    <div class="bar-chart">
+      <div class="bar-row"><span class="bar-label">Off-hours login</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:#58a6ff"></div></div><span class="bar-count" style="color:#58a6ff">ON</span></div>
+      <div class="bar-row"><span class="bar-label">New IP address</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:#58a6ff"></div></div><span class="bar-count" style="color:#58a6ff">ON</span></div>
+      <div class="bar-row"><span class="bar-label">New system access</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:#58a6ff"></div></div><span class="bar-count" style="color:#58a6ff">ON</span></div>
+      <div class="bar-row"><span class="bar-label">Volume spike (3x)</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:#58a6ff"></div></div><span class="bar-count" style="color:#58a6ff">ON</span></div>
+      <div style="margin-top:1rem;padding:.65rem;background:#0d1117;border-radius:6px;font-size:.75rem;color:var(--subtext);line-height:1.6">
+        <b style="color:var(--text)">Baseline learning:</b> Each rule activates after enough events are seen per user. New users are observed silently for the first 10 events before anomaly detection begins.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const socket = io();
+let anomalies = [];
+let profiles  = [];
+
+// Load existing data
+fetch('/api/ueba/anomalies').then(r=>r.json()).then(data => {
+  anomalies = data; renderAll();
+});
+fetch('/api/ueba/profiles').then(r=>r.json()).then(data => {
+  profiles = data; renderProfiles();
+});
+fetch('/api/ueba/stats').then(r=>r.json()).then(updateStats);
+
+// Live updates
+socket.on('ueba_anomaly', a => {
+  anomalies.unshift(a);
+  if (anomalies.length > 100) anomalies.pop();
+  renderAll();
+});
+socket.on('ueba_stats', updateStats);
+socket.on('new_event', () => {
+  // Refresh profiles periodically
+  fetch('/api/ueba/profiles').then(r=>r.json()).then(data => {
+    profiles = data; renderProfiles();
+  });
+  fetch('/api/ueba/stats').then(r=>r.json()).then(updateStats);
+});
+
+function renderAll() {
+  renderFeed();
+  renderChart();
+}
+
+function renderFeed() {
+  const el = document.getElementById('anomaly-feed');
+  if (!anomalies.length) {
+    el.innerHTML = '<div class="empty">No anomalies detected yet — monitoring active events</div>';
+    return;
+  }
+  el.innerHTML = anomalies.slice(0,20).map(a => `
+    <div class="anomaly-item ${a.severity}">
+      <div class="anomaly-header">
+        <span class="anomaly-title">${a.title}</span>
+        <div style="display:flex;gap:.4rem;align-items:center">
+          <span class="sev-badge sev-${a.severity}">${a.severity}</span>
+          <span class="anomaly-time">${(a.timestamp||'').slice(0,16).replace('T',' ')}</span>
+        </div>
+      </div>
+      <div class="anomaly-desc">${a.description}</div>
+    </div>`).join('');
+}
+
+function renderChart() {
+  const el = document.getElementById('anomaly-chart');
+  const types = {};
+  anomalies.forEach(a => types[a.type] = (types[a.type]||0)+1);
+  const labels = {
+    off_hours_login: 'Off-hours login',
+    new_ip:          'New IP address',
+    new_host:        'New system access',
+    volume_spike:    'Volume spike'
+  };
+  const colors = {
+    off_hours_login: '#58a6ff',
+    new_ip:          '#f85149',
+    new_host:        '#d29922',
+    volume_spike:    '#a371f7'
+  };
+  const sorted = Object.entries(types).sort((a,b)=>b[1]-a[1]);
+  if (!sorted.length) { el.innerHTML = '<div class="empty">No data yet</div>'; return; }
+  const max = sorted[0][1];
+  el.innerHTML = sorted.map(([type, count]) => `
+    <div class="bar-row">
+      <span class="bar-label">${labels[type]||type}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(count/max*100)}%;background:${colors[type]||'#58a6ff'}"></div></div>
+      <span class="bar-count">${count}</span>
+    </div>`).join('');
+}
+
+function renderProfiles() {
+  const el = document.getElementById('user-profiles');
+  if (!profiles.length) { el.innerHTML = '<div class="empty">No user profiles built yet</div>'; return; }
+  el.innerHTML = profiles.map(p => {
+    const ac = p.anomaly_count;
+    const acClass = ac >= 3 ? 'ac-high' : ac >= 1 ? 'ac-med' : 'ac-ok';
+    const initials = p.username.slice(0,2).toUpperCase();
+    const avgTime = p.avg_login_hour ? `~${Math.floor(p.avg_login_hour)}:00 UTC` : '—';
+    return `<div class="user-row">
+      <div class="user-avatar">${initials}</div>
+      <div class="user-info">
+        <div class="user-name">${p.username}</div>
+        <div class="user-meta">Avg login: ${avgTime} &middot; ${p.known_ips.length} IPs &middot; ${p.known_hosts.length} hosts</div>
+      </div>
+      <div class="user-stats">
+        <div class="user-stat"><b>${p.total_events}</b> events</div>
+        <span class="anomaly-count ${acClass}">${ac} anomalies</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateStats(s) {
+  if (!s) return;
+  document.getElementById('s-total').textContent  = s.total_anomalies||0;
+  document.getElementById('s-high').textContent   = (s.by_severity||{}).HIGH||0;
+  document.getElementById('s-medium').textContent = (s.by_severity||{}).MEDIUM||0;
+  document.getElementById('s-users').textContent  = s.users_tracked||0;
+}
+</script>
+</body>
+</html>

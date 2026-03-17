@@ -1,0 +1,130 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <title>Network Traffic Analyzer - Sentinel SOC</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0d0f14;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:1.5rem}
+    h1{font-size:1.6rem;font-weight:600;margin-bottom:.25rem}
+    .subtitle{color:#888;font-size:.9rem;margin-bottom:1.5rem}
+    .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1rem}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+    .card{background:#1a1d23;border:1px solid #2a2d35;border-radius:10px;padding:1.25rem}
+    .card h2{font-size:.85rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem;font-weight:500}
+    .stat-card{text-align:center;padding:1rem}
+    .stat-value{font-size:2rem;font-weight:700;line-height:1}
+    .stat-label{font-size:.75rem;color:#888;margin-top:.35rem;text-transform:uppercase;letter-spacing:.05em}
+    .stat-card.green .stat-value{color:#51cf66}
+    .stat-card.blue .stat-value{color:#4a9eff}
+    .stat-card.amber .stat-value{color:#ffd43b}
+    .stat-card.red .stat-value{color:#ff5f57}
+    .monitor-status{display:flex;align-items:center;gap:.5rem;margin-bottom:1.5rem}
+    .pulse{width:10px;height:10px;border-radius:50%;background:#51cf66;animation:pulse 2s infinite}
+    .pulse.off{background:#555;animation:none}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.2)}}
+    .status-text{font-size:.85rem;color:#888}
+    .btn{padding:.5rem 1.1rem;border-radius:6px;border:none;font-size:.85rem;font-weight:500;cursor:pointer;transition:background .2s}
+    .btn-green{background:#2d6a3f;color:#51cf66}
+    .btn-green:hover{background:#3a8a52}
+    .btn-red{background:#6a2d2d;color:#ff5f57}
+    .btn-red:hover{background:#8a3a3a}
+    .btn:disabled{opacity:.4;cursor:not-allowed}
+    .btn-row{display:flex;gap:.5rem;margin-bottom:1.5rem;align-items:center}
+    .table-wrap{overflow-x:auto;max-height:340px;overflow-y:auto}
+    table{width:100%;border-collapse:collapse;font-size:.8rem}
+    th{color:#666;font-weight:500;text-align:left;padding:.4rem .6rem;border-bottom:1px solid #2a2d35;position:sticky;top:0;background:#1a1d23;z-index:1}
+    td{padding:.4rem .6rem;border-bottom:1px solid #1a1d1f;color:#ccc;vertical-align:middle}
+    tr:hover td{background:#1e2128}
+    .badge{padding:.15rem .45rem;border-radius:4px;font-size:.7rem;font-weight:600;white-space:nowrap;background:rgba(100,100,100,.15);color:#aaa}
+    .risk-HIGH{color:#ff5f57;font-weight:600}
+    .risk-MEDIUM{color:#ffd43b;font-weight:600}
+    .risk-INFO{color:#888}
+    .anomaly-tag{background:rgba(255,95,87,.12);border:1px solid rgba(255,95,87,.25);color:#ff5f57;border-radius:3px;padding:.1rem .35rem;font-size:.68rem;margin-right:.2rem}
+    .bar-chart{display:flex;flex-direction:column;gap:.4rem}
+    .bar-row{display:flex;align-items:center;gap:.5rem;font-size:.78rem}
+    .bar-label{min-width:100px;color:#aaa;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .bar-track{flex:1;background:#111316;border-radius:3px;height:8px;overflow:hidden}
+    .bar-fill{height:100%;border-radius:3px;background:#1d6fe5;transition:width .5s ease}
+    .bar-fill.green{background:#2d8a4e}
+    .bar-fill.amber{background:#b07510}
+    .bar-count{min-width:24px;color:#666;font-size:.72rem}
+    .alert-feed{max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:.4rem}
+    .alert-item{background:#111316;border-left:3px solid #ff5f57;border-radius:0 6px 6px 0;padding:.5rem .75rem;font-size:.78rem}
+    .alert-item.MEDIUM{border-left-color:#ffd43b}
+    .alert-time{color:#555;font-size:.7rem;margin-bottom:.2rem}
+    .alert-proc{color:#4a9eff;font-family:monospace}
+    .io-row{display:flex;justify-content:space-between;margin-bottom:.5rem;font-size:.82rem}
+    .io-label{color:#888}
+    .io-value{color:#e0e0e0;font-family:monospace}
+    .empty{color:#555;font-size:.82rem;text-align:center;padding:1.5rem}
+    .baseline-notice{background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.2);border-radius:6px;padding:.5rem .75rem;font-size:.78rem;color:#4a9eff;margin-bottom:1rem;display:none}
+  </style>
+</head>
+<body><script src="/static/nav.js"></script>
+<h1>Network Traffic Analyzer</h1>
+<p class="subtitle">Live connection monitoring &rarr; anomaly detection &rarr; process attribution</p>
+<div class="monitor-status">
+  <div class="pulse off" id="pulse"></div>
+  <span class="status-text" id="status-text">Monitor stopped</span>
+</div>
+<div class="btn-row">
+  <button class="btn btn-green" id="btn-start" onclick="startMonitor()">&#9654; Start Monitor</button>
+  <button class="btn btn-red" id="btn-stop" onclick="stopMonitor()" disabled>&#9646;&#9646; Stop</button>
+  <span style="font-size:.78rem;color:#555;margin-left:.5rem" id="poll-label"></span>
+</div>
+<div class="baseline-notice" id="baseline-notice">Learning baseline traffic... anomaly detection active after 3 polls (~15 seconds)</div>
+<div class="grid-4">
+  <div class="card stat-card green"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Active Connections</div></div>
+  <div class="card stat-card blue"><div class="stat-value" id="stat-ips">0</div><div class="stat-label">Remote IPs</div></div>
+  <div class="card stat-card amber"><div class="stat-value" id="stat-alerts">0</div><div class="stat-label">Anomalies</div></div>
+  <div class="card stat-card red"><div class="stat-value" id="stat-bytes">0</div><div class="stat-label">MB Sent</div></div>
+</div>
+<div class="grid-2">
+  <div class="card">
+    <h2>Active Connections <span id="conn-count" style="color:#4a9eff"></span></h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Process</th><th>Remote IP</th><th>Port / Service</th><th>Status</th><th>Risk</th></tr></thead>
+        <tbody id="conn-table-body"><tr><td colspan="5" class="empty">Start monitor to see connections</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Anomaly Alerts</h2>
+    <div class="alert-feed" id="alert-feed"><div class="empty">No anomalies detected</div></div>
+  </div>
+</div>
+<div class="grid-2">
+  <div class="card"><h2>Top Processes</h2><div class="bar-chart" id="process-chart"><div class="empty">Waiting for data...</div></div></div>
+  <div class="card"><h2>Top Services</h2><div class="bar-chart" id="service-chart"><div class="empty">Waiting for data...</div></div></div>
+</div>
+<div class="grid-2">
+  <div class="card">
+    <h2>Network I/O</h2>
+    <div class="io-row"><span class="io-label">Bytes Sent</span><span class="io-value" id="io-sent">-</span></div>
+    <div class="io-row"><span class="io-label">Bytes Received</span><span class="io-value" id="io-recv">-</span></div>
+    <div class="io-row"><span class="io-label">Last Poll</span><span class="io-value" id="io-poll">-</span></div>
+    <div class="io-row"><span class="io-label">Baseline</span><span class="io-value" id="io-baseline">Learning...</span></div>
+  </div>
+  <div class="card"><h2>Connection States</h2><div class="bar-chart" id="state-chart"><div class="empty">Waiting for data...</div></div></div>
+</div>
+<script>
+const socket=io();
+let alertCount=0,allAlerts=[];
+socket.on("network_update",data=>{updateStats(data.stats);updateConnectionTable(data.connections);updateCharts(data.connections);document.getElementById("poll-label").textContent="Last update: "+new Date().toLocaleTimeString()});
+socket.on("network_alert",alert=>{allAlerts.unshift(alert);if(allAlerts.length>50)allAlerts.pop();renderAlerts();alertCount++;document.getElementById("stat-alerts").textContent=alertCount});
+function startMonitor(){fetch("/api/network/start",{method:"POST"}).then(r=>r.json()).then(d=>{if(d.status==="started"||d.status==="already_running")setMonitorState(true)}).catch(e=>console.error(e))}
+function stopMonitor(){fetch("/api/network/stop",{method:"POST"}).then(()=>setMonitorState(false)).catch(e=>console.error(e))}
+function setMonitorState(running){document.getElementById("pulse").classList.toggle("off",!running);document.getElementById("status-text").textContent=running?"Monitor running - polling every 5s":"Monitor stopped";document.getElementById("btn-start").disabled=running;document.getElementById("btn-stop").disabled=!running;document.getElementById("baseline-notice").style.display=running?"block":"none"}
+function updateStats(stats){if(!stats)return;document.getElementById("stat-total").textContent=stats.total_connections||0;document.getElementById("stat-ips").textContent=stats.unique_remote_ips||0;document.getElementById("stat-bytes").textContent=((stats.bytes_sent||0)/1048576).toFixed(1);document.getElementById("io-sent").textContent=formatBytes(stats.bytes_sent||0);document.getElementById("io-recv").textContent=formatBytes(stats.bytes_recv||0);document.getElementById("io-poll").textContent=stats.last_poll?stats.last_poll.replace("T"," ").slice(0,19):"-";document.getElementById("io-baseline").textContent=stats.baseline_ready?"Active":"Learning...";if(stats.baseline_ready)document.getElementById("baseline-notice").style.display="none"}
+function updateConnectionTable(connections){if(!connections)return;const tbody=document.getElementById("conn-table-body");document.getElementById("conn-count").textContent="("+connections.length+")";if(!connections.length){tbody.innerHTML='<tr><td colspan="5" class="empty">No active connections</td></tr>';return}const sorted=[...connections].sort((a,b)=>(b.anomalies.length-a.anomalies.length));tbody.innerHTML=sorted.slice(0,50).map(c=>{const tags=c.anomalies.map(a=>`<span class="anomaly-tag" title="${a}">!</span>`).join("");const remote=c.remote_ip||(c.status==="LISTEN"?"<em style='color:#555'>listening</em>":"—");const svc=c.remote_service||(c.remote_port?":"+c.remote_port:"—");return`<tr><td style="font-family:monospace;color:#4a9eff">${c.process}</td><td>${remote}</td><td>${svc}</td><td><span class="badge">${c.status}</span></td><td class="risk-${c.risk_level}">${tags}${c.risk_level!=="INFO"?c.risk_level:"—"}</td></tr>`}).join("")}
+function updateCharts(connections){if(!connections)return;const pm={},sm={},stm={};connections.forEach(c=>{pm[c.process]=(pm[c.process]||0)+1;stm[c.status]=(stm[c.status]||0)+1;if(c.remote_service)sm[c.remote_service]=(sm[c.remote_service]||0)+1});renderBarChart("process-chart",pm,"blue");renderBarChart("service-chart",sm,"green");renderBarChart("state-chart",stm,"amber")}
+function renderBarChart(elId,dataMap,color){const el=document.getElementById(elId);const sorted=Object.entries(dataMap).sort((a,b)=>b[1]-a[1]).slice(0,8);if(!sorted.length){el.innerHTML='<div class="empty">No data</div>';return}const max=sorted[0][1];el.innerHTML=sorted.map(([label,count])=>`<div class="bar-row"><span class="bar-label" title="${label}">${label}</span><div class="bar-track"><div class="bar-fill ${color}" style="width:${Math.round(count/max*100)}%"></div></div><span class="bar-count">${count}</span></div>`).join("")}
+function renderAlerts(){const feed=document.getElementById("alert-feed");if(!allAlerts.length){feed.innerHTML='<div class="empty">No anomalies detected</div>';return}feed.innerHTML=allAlerts.slice(0,20).map(a=>`<div class="alert-item ${a.risk_level}"><div class="alert-time">${a.timestamp.replace("T"," ").slice(0,19)}</div><div class="alert-msg"><span class="alert-proc">${a.process}</span> &rarr; ${a.remote_ip}:${a.remote_port}</div><div style="color:#888;font-size:.72rem;margin-top:.2rem">${a.anomalies.join(" · ")}</div></div>`).join("")}
+function formatBytes(b){if(b>=1073741824)return(b/1073741824).toFixed(2)+" GB";if(b>=1048576)return(b/1048576).toFixed(1)+" MB";if(b>=1024)return(b/1024).toFixed(0)+" KB";return b+" B"}
+fetch("/api/network/status").then(r=>r.json()).then(d=>{if(d.running)setMonitorState(true);if(d.stats)updateStats(d.stats)}).catch(()=>{});
+</script>
+</body>
+</html>
+

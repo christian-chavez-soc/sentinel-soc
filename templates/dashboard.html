@@ -1,0 +1,315 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<title>Sentinel SOC Dashboard</title>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #161b22; --border: #30363d;
+    --accent: #58a6ff; --accent2: #79c0ff; --text: #e6edf3;
+    --subtext: #8b949e; --red: #f85149; --orange: #d29922;
+    --yellow: #e3b341; --green: #3fb950;
+  }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',monospace; margin:0; padding:20px; font-size:13px; }
+  h1 { color:var(--text); border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:12px; font-size:20px; font-weight:600; letter-spacing:1px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:16px; }
+  .panel h2 { margin-top:0; font-size:11px; color:var(--subtext); text-transform:uppercase; letter-spacing:2px; font-weight:600; margin-bottom:12px; }
+  .alert-card { padding:10px 12px; margin:6px 0; border-radius:6px; font-size:12px; line-height:1.5; }
+  .CRITICAL { background:#3d1c1c; border-left:3px solid var(--red); color:#ffa198; }
+  .HIGH     { background:#2d2008; border-left:3px solid var(--orange); color:#e3b341; }
+  .MEDIUM   { background:#1f2d0e; border-left:3px solid var(--green); color:#7ee787; }
+  .LOW      { background:#0d1f2d; border-left:3px solid var(--accent); color:#79c0ff; }
+  .INFO     { background:#161b22; border-left:3px solid var(--border); color:var(--subtext); }
+  .response-card { padding:8px 10px; margin:5px 0; border-radius:4px; font-size:11px; }
+  .response-ok   { background:#0d1f0e; border-left:3px solid var(--green); color:#7ee787; }
+  .response-fail { background:#1c0d0d; border-left:3px solid var(--red); color:#ffa198; }
+  .agent-card { padding:8px 10px; margin:5px 0; border-radius:4px; font-size:11px; background:#1c2128; border-left:3px solid var(--accent); }
+  .intel-card { padding:10px 12px; margin:6px 0; border-radius:6px; font-size:11px; background:#1c2128; border:1px solid var(--border); }
+  .intel-name { font-size:13px; font-weight:600; color:var(--text); margin-bottom:6px; }
+  .intel-stat { display:inline-block; margin-right:14px; color:var(--subtext); }
+  .intel-stat b { color:var(--accent2); }
+  .mitre-card { padding:10px 12px; margin:6px 0; border-radius:6px; font-size:11px; background:#1c2128; border:1px solid var(--border); }
+  .mitre-id { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; margin-right:8px; background:#0d1f2d; color:var(--accent); border:1px solid var(--accent); }
+  .mitre-critical { border-left:3px solid var(--red); }
+  .mitre-high { border-left:3px solid var(--orange); }
+  .mitre-medium { border-left:3px solid var(--green); }
+  .badge { display:inline-block; padding:1px 6px; border-radius:12px; font-size:10px; margin:0 2px; font-weight:600; }
+  .badge-red    { background:#3d1c1c; color:#ffa198; border:1px solid #f8514966; }
+  .badge-orange { background:#2d2008; color:#e3b341; border:1px solid #d2992266; }
+  .badge-yellow { background:#1f2d0e; color:#7ee787; border:1px solid #3fb95066; }
+  .badge-green  { background:#0d1f2d; color:#79c0ff; border:1px solid #58a6ff66; }
+  .timeline-item { padding:5px 0; border-bottom:1px solid var(--border); font-size:11px; color:var(--subtext); }
+  .timeline-item b { color:var(--accent); }
+  .geo-item { padding:5px 0; border-bottom:1px solid var(--border); font-size:11px; }
+  .risk-bar-wrap { margin:5px 0; }
+  .risk-bar-label { font-size:11px; margin-bottom:2px; }
+  .risk-bar-bg { background:#21262d; border-radius:4px; height:8px; }
+  .risk-bar-fill { height:8px; border-radius:4px; transition:width 0.5s; }
+  .stat { font-size:26px; font-weight:700; }
+  .stat-label { font-size:10px; color:var(--subtext); margin-top:2px; text-transform:uppercase; letter-spacing:1px; }
+  .stats-row { display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr; gap:12px; margin-bottom:16px; }
+  .stat-box { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px; text-align:center; }
+  #map-frame { width:100%; height:400px; border:none; border-radius:6px; }
+  .btn { background:#1c2128; border:1px solid var(--accent); color:var(--accent); padding:7px 18px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12px; margin-bottom:14px; font-weight:600; }
+  .btn:hover { background:#21262d; }
+</style>
+</head>
+<body><script src="/static/nav.js"></script>
+<h1>Sentinel SOC Dashboard</h1>
+<button class="btn" onclick="generateReport()">Generate Incident Report PDF</button>
+<span id="report-status" style="margin-left:10px;font-size:11px;color:#8b949e"></span>
+
+<div class="stats-row">
+  <div class="stat-box"><div class="stat" id="stat-total" style="color:var(--text)">0</div><div class="stat-label">Total Events</div></div>
+  <div class="stat-box"><div class="stat" id="stat-alerts" style="color:var(--red)">0</div><div class="stat-label">Active Alerts</div></div>
+  <div class="stat-box"><div class="stat" id="stat-users" style="color:var(--text)">0</div><div class="stat-label">Users Monitored</div></div>
+  <div class="stat-box"><div class="stat" id="stat-responses" style="color:var(--orange)">0</div><div class="stat-label">Auto Responses</div></div>
+  <div class="stat-box"><div class="stat" id="stat-agents" style="color:var(--accent)">0</div><div class="stat-label">Active Agents</div></div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Active Alerts</h2>
+    <div id="alerts"></div>
+  </div>
+  <div class="panel">
+    <h2>User Risk Scores</h2>
+    <div id="risk-scores"></div>
+  </div>
+</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>MITRE ATT&CK Techniques Detected</h2>
+  <div id="mitre-panel"></div>
+</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>Attack Origin Map</h2>
+  <iframe id="map-frame" src="/map"></iframe>
+  <div id="geo-list" style="margin-top:10px;max-height:120px;overflow-y:auto"></div>
+</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>AI Behavioral Intelligence</h2>
+  <div id="intelligence"></div>
+</div>
+
+<div class="grid" style="margin-top:16px">
+  <div class="panel">
+    <h2>Connected Agents</h2>
+    <div id="agents"></div>
+  </div>
+  <div class="panel">
+    <h2>Automated Responses</h2>
+    <div id="responses"></div>
+  </div>
+</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>Incident Timeline</h2>
+  <div id="timeline"></div>
+</div>
+
+<script>
+const seenIds = new Set();
+const userRiskMap = {};
+const mitreDetected = {};
+let totalEvents = 0, totalAlerts = 0, totalResponses = 0;
+const monitoredUsers = new Set();
+
+function generateReport() {
+    const btn = document.querySelector(".btn");
+    const status = document.getElementById("report-status");
+    btn.textContent = "Generating...";
+    fetch("/generate-report", { method: "POST" })
+        .then(r => { if (r.ok) return r.blob(); throw new Error("Failed"); })
+        .then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url; a.download = "sentinel_report.pdf"; a.click();
+            btn.textContent = "Generate Incident Report PDF";
+            status.textContent = "Downloaded!";
+            setTimeout(() => status.textContent = "", 3000);
+        })
+        .catch(err => { btn.textContent = "Generate Incident Report PDF"; status.textContent = "Error: " + err.message; });
+}
+
+function getSeverity(score, confidence) {
+    if (score >= 200 || confidence >= 0.8) return "CRITICAL";
+    if (score >= 100 || confidence >= 0.5) return "HIGH";
+    if (score >= 50  || confidence >= 0.3) return "MEDIUM";
+    if (score >= 20  || confidence >= 0.1) return "LOW";
+    return "INFO";
+}
+
+function getRiskColor(score) {
+    if (score >= 200) return "#f85149";
+    if (score >= 100) return "#d29922";
+    if (score >= 50)  return "#3fb950";
+    return "#58a6ff";
+}
+
+function updateMitre(techniques, username) {
+    if (!techniques || !techniques.length) return;
+    techniques.forEach(t => {
+        if (!mitreDetected[t.id]) {
+            mitreDetected[t.id] = { ...t, users: new Set(), count: 0 };
+        }
+        mitreDetected[t.id].users.add(username);
+        mitreDetected[t.id].count++;
+    });
+    renderMitre();
+}
+
+function renderMitre() {
+    const container = document.getElementById("mitre-panel");
+    container.innerHTML = "";
+    if (!Object.keys(mitreDetected).length) {
+        container.innerHTML = "<div style='color:#8b949e;font-size:11px'>No attack patterns detected yet.</div>";
+        return;
+    }
+    Object.values(mitreDetected)
+        .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
+        .forEach(t => {
+            const severityClass = "mitre-" + t.severity.toLowerCase();
+            const confPct = Math.round((t.confidence || 0) * 100);
+            const users = [...t.users].join(", ");
+            container.innerHTML +=
+                "<div class='mitre-card " + severityClass + "'>" +
+                "<span class='mitre-id'>" + t.id + "</span>" +
+                "<b style='color:var(--text)'>" + t.name + "</b>" +
+                " <span style='color:#8b949e;font-size:10px'>[" + t.severity + " | Confidence: " + confPct + "%]</span>" +
+                "<br><small style='color:#8b949e'>" + t.description + "</small>" +
+                "<br><small style='color:#58a6ff'>Evidence: " + t.evidence + "</small>" +
+                "<br><small style='color:#8b949e'>Detected " + t.count + "x | Users: " + users + "</small>" +
+                "</div>";
+        });
+}
+
+function loadIntelligence() {
+    fetch("/intelligence").then(r => r.json()).then(data => {
+        const container = document.getElementById("intelligence");
+        container.innerHTML = "";
+        if (!data.length) { container.innerHTML = "<div style='color:#8b949e;font-size:11px'>No behavioral data yet.</div>"; return; }
+        data.forEach(user => {
+            const riskColor = getRiskColor(user.total_risk);
+            const maturity = user.profile_maturity >= 10 ? "MATURE" : user.profile_maturity >= 5 ? "LEARNING" : "NEW";
+            const maturityColor = maturity === "MATURE" ? "badge-green" : maturity === "LEARNING" ? "badge-yellow" : "badge-orange";
+            const threatLevel = user.total_risk >= 500 ? "badge-red" : user.total_risk >= 200 ? "badge-orange" : user.total_risk >= 100 ? "badge-yellow" : "badge-green";
+            container.innerHTML += "<div class='intel-card'><div class='intel-name'>" + user.username +
+                " <span class='badge " + threatLevel + "'>Risk: " + user.total_risk + "</span>" +
+                " <span class='badge " + maturityColor + "'>" + maturity + "</span></div>" +
+                "<span class='intel-stat'>Events: <b>" + user.total_events + "</b></span>" +
+                "<span class='intel-stat'>Peak: <b style='color:" + riskColor + "'>" + user.peak_risk + "</b></span>" +
+                "<span class='intel-stat'>Hosts: <b>" + user.unique_hosts + "</b></span>" +
+                "<span class='intel-stat'>Failed: <b style='color:#f85149'>" + user.failed_logons + "</b></span>" +
+                "<span class='intel-stat'>Anomaly: <b>" + user.anomaly_score + "</b></span>" +
+                "<br><small style='color:#8b949e'>Hosts: " + (user.known_hosts.join(", ") || "none") + "</small></div>";
+        });
+    });
+}
+
+function updateAgents(agents) {
+    const container = document.getElementById("agents");
+    container.innerHTML = "";
+    document.getElementById("stat-agents").textContent = agents.length;
+    agents.forEach(a => {
+        container.innerHTML += "<div class='agent-card'><b>" + a.host + "</b> <span style='color:#8b949e'>[" + a.os + "]</span>" +
+            "<br><small style='color:#8b949e'>Last seen: " + a.last_seen + " | Events: " + a.event_count + "</small></div>";
+    });
+}
+
+function addResponse(entry) {
+    totalResponses++;
+    document.getElementById("stat-responses").textContent = totalResponses;
+    const card = document.createElement("div");
+    card.className = "response-card " + (entry.success ? "response-ok" : "response-fail");
+    card.innerHTML = "<b>" + entry.action + "</b> -> " + entry.target + "<br><small>" + entry.detail + "</small>";
+    document.getElementById("responses").prepend(card);
+}
+
+function addGeoHit(geo) {
+    const color = geo.risk_score >= 200 ? "#f85149" : geo.risk_score >= 100 ? "#d29922" : "#3fb950";
+    const item = document.createElement("div");
+    item.className = "geo-item";
+    item.innerHTML = "<span style='color:" + color + "'>●</span> <b>" + geo.username + "</b> from " +
+        geo.city + ", " + geo.country + " (" + geo.ip + ") Risk: " + geo.risk_score;
+    document.getElementById("geo-list").prepend(item);
+    document.getElementById("map-frame").src = "/map?" + Date.now();
+}
+
+function addEvent(data) {
+    const key = data.username + "|" + data.origin + "|" + data.risk_score;
+    if (seenIds.has(key)) return;
+    seenIds.add(key);
+    totalEvents++;
+    monitoredUsers.add(data.username);
+    document.getElementById("stat-total").textContent = totalEvents;
+    document.getElementById("stat-users").textContent = monitoredUsers.size;
+
+    const severity = data.severity || getSeverity(data.risk_score, data.confidence || 0);
+    const reasons = data.reasons ? data.reasons.join(", ") : "None";
+    const agent = data.agent_host ? " [" + data.agent_host + "]" : "";
+    const now = new Date().toLocaleTimeString();
+
+    if (severity !== "INFO") {
+        totalAlerts++;
+        document.getElementById("stat-alerts").textContent = totalAlerts;
+        const card = document.createElement("div");
+        card.className = "alert-card " + severity;
+        card.innerHTML = "<b>[" + severity + "]</b> " + data.username + " @ " + data.origin + agent +
+            " &mdash; Risk: " + data.risk_score + " | Conf: " + (data.confidence || 0) +
+            "<br><small style='opacity:0.8'>" + reasons + "</small>";
+        document.getElementById("alerts").prepend(card);
+    }
+
+    if (data.mitre_techniques && data.mitre_techniques.length) {
+        updateMitre(data.mitre_techniques, data.username);
+    }
+
+    if (data.responses && data.responses.length) data.responses.forEach(addResponse);
+    if (data.geo) addGeoHit(data.geo);
+
+    userRiskMap[data.username] = (userRiskMap[data.username] || 0) + data.risk_score;
+    updateRiskBars();
+
+    const item = document.createElement("div");
+    item.className = "timeline-item";
+    item.innerHTML = "<b>" + now + "</b> &nbsp;|&nbsp; " + data.username + " &rarr; " + data.origin + agent +
+        " &nbsp;|&nbsp; Risk: " + data.risk_score + " &nbsp;|&nbsp; " + severity;
+    document.getElementById("timeline").prepend(item);
+}
+
+function updateRiskBars() {
+    const container = document.getElementById("risk-scores");
+    container.innerHTML = "";
+    const maxRisk = Math.max(...Object.values(userRiskMap), 1);
+    Object.entries(userRiskMap).sort((a, b) => b[1] - a[1]).forEach(([user, score]) => {
+        const pct = Math.min((score / maxRisk) * 100, 100);
+        const color = getRiskColor(score);
+        container.innerHTML += "<div class='risk-bar-wrap'><div class='risk-bar-label'>" + user + " &mdash; " + score + "</div>" +
+            "<div class='risk-bar-bg'><div class='risk-bar-fill' style='width:" + pct + "%;background:" + color + "'></div></div></div>";
+    });
+}
+
+const socket = io();
+socket.on("connect", () => {
+    fetch("/events").then(r => r.json()).then(events => {
+        events.forEach(addEvent);
+        fetch("/responses").then(r => r.json()).then(data => {
+            data.responses.forEach(addResponse);
+            data.containment.forEach(addResponse);
+        });
+        fetch("/agents").then(r => r.json()).then(updateAgents);
+        loadIntelligence();
+    });
+});
+socket.on("new_event", addEvent);
+socket.on("agent_update", updateAgents);
+socket.on("intel_update", loadIntelligence);
+socket.on("geo_update", addGeoHit);
+</script>
+</body>
+</html>

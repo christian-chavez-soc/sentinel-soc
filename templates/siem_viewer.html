@@ -1,0 +1,382 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<title>SIEM Log Viewer - Sentinel SOC</title>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<script src="/static/nav.js"></script>
+<style>
+:root{--bg:#0f1117;--panel:#161b22;--border:#30363d;--accent:#58a6ff;--text:#e6edf3;--subtext:#8b949e;--red:#f85149;--orange:#d29922;--green:#3fb950;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',monospace;padding:1.5rem;font-size:13px;}
+h1{font-size:1.4rem;font-weight:600;margin-bottom:.25rem;color:var(--text)}
+.subtitle{color:var(--subtext);font-size:.85rem;margin-bottom:1.25rem}
+.toolbar{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+.search-box{background:#161b22;border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.45rem .75rem;font-size:.82rem;outline:none;flex:1;min-width:200px;font-family:monospace}
+.search-box:focus{border-color:var(--accent)}
+.filter-select{background:#161b22;border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.45rem .65rem;font-size:.78rem;outline:none;cursor:pointer}
+.btn{padding:.4rem .9rem;border-radius:6px;border:none;font-size:.78rem;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-blue{background:#1c3a5e;color:var(--accent);border:1px solid #58a6ff44}
+.btn-blue:hover{background:#1e4a7a}
+.btn-red{background:#3d1c1c;color:var(--red);border:1px solid #f8514944}
+.btn-red:hover{background:#4d2020}
+.btn-green{background:#1c3d1c;color:var(--green);border:1px solid #3fb95044}
+.btn-green:hover{background:#1e4d1e}
+.stats-bar{display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}
+.stat-pill{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.35rem .75rem;font-size:.75rem;color:var(--subtext)}
+.stat-pill b{color:var(--text)}
+.stat-pill.red b{color:var(--red)}
+.stat-pill.orange b{color:var(--orange)}
+.stat-pill.green b{color:var(--green)}
+.stat-pill.blue b{color:var(--accent)}
+.live-badge{background:#1c3d1c;color:var(--green);border:1px solid #3fb95044;border-radius:12px;padding:.2rem .6rem;font-size:.7rem;font-weight:700;animation:lpulse 2s infinite}
+.live-badge.paused{background:#2d2008;color:var(--orange);border-color:#d2992244;animation:none}
+@keyframes lpulse{0%,100%{opacity:1}50%{opacity:.6}}
+.log-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+thead th{background:#161b22;color:var(--subtext);font-weight:500;text-align:left;padding:.5rem .75rem;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:var(--text)}
+thead th.sorted{color:var(--accent)}
+tbody tr{border-bottom:1px solid #1c2128;cursor:pointer;transition:background .1s}
+tbody tr:hover{background:#1c2128}
+tbody tr.expanded{background:#1a2233}
+td{padding:.45rem .75rem;vertical-align:top;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+td.wrap{white-space:normal;max-width:320px}
+.sev{display:inline-block;padding:.1rem .45rem;border-radius:4px;font-size:.68rem;font-weight:700;letter-spacing:.04em}
+.sev-CRITICAL{background:#3d1c1c;color:#ffa198}
+.sev-HIGH{background:#2d2008;color:#e3b341}
+.sev-MEDIUM{background:#1f2d0e;color:#7ee787}
+.sev-LOW{background:#0d1f2d;color:#79c0ff}
+.sev-INFO{background:#1c2128;color:var(--subtext)}
+.score-bar{display:inline-block;background:#21262d;border-radius:3px;height:6px;width:60px;vertical-align:middle;margin-left:.35rem;overflow:hidden}
+.score-fill{height:100%;border-radius:3px;background:var(--green)}
+.score-fill.high{background:var(--orange)}
+.score-fill.critical{background:var(--red)}
+.expand-row td{background:#0d1117;padding:0}
+.expand-content{padding:1rem 1.25rem;font-size:.78rem;border-top:1px solid var(--border)}
+.expand-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem 1.5rem;margin-bottom:.75rem}
+.expand-field{display:flex;flex-direction:column;gap:.1rem}
+.expand-label{color:var(--subtext);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em}
+.expand-value{color:var(--text);font-family:monospace;font-size:.78rem}
+.mitre-tag{display:inline-block;background:#0d1f2d;color:var(--accent);border:1px solid #58a6ff44;border-radius:4px;padding:.1rem .4rem;font-size:.68rem;font-family:monospace;margin:.1rem .15rem}
+.reasons-list{list-style:none;padding:0}
+.reasons-list li{padding:.15rem 0;color:#7ee787;font-size:.75rem}
+.reasons-list li::before{content:"▸ ";color:var(--subtext)}
+.empty-state{text-align:center;padding:3rem;color:var(--subtext)}
+.empty-state .big{font-size:2rem;margin-bottom:.5rem}
+.pagination{display:flex;align-items:center;gap:.5rem;margin-top:.75rem;font-size:.78rem;color:var(--subtext)}
+.page-btn{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:.2rem .6rem;cursor:pointer;font-size:.75rem}
+.page-btn:hover{border-color:var(--accent);color:var(--accent)}
+.page-btn:disabled{opacity:.3;cursor:not-allowed}
+</style>
+</head>
+<body>
+<h1>SIEM Log Viewer</h1>
+<p class="subtitle">Search, filter and investigate all Sentinel security events in real time</p>
+
+<div class="toolbar">
+  <input class="search-box" id="search-input" placeholder="Search by username, IP, reason, host..." oninput="applyFilters()"/>
+  <select class="filter-select" id="filter-severity" onchange="applyFilters()">
+    <option value="">All Severities</option>
+    <option value="CRITICAL">Critical</option>
+    <option value="HIGH">High</option>
+    <option value="MEDIUM">Medium</option>
+    <option value="LOW">Low</option>
+    <option value="INFO">Info</option>
+  </select>
+  <select class="filter-select" id="filter-type" onchange="applyFilters()">
+    <option value="">All Types</option>
+    <option value="4624">4624 Logon</option>
+    <option value="4625">4625 Failed Logon</option>
+    <option value="4648">4648 Explicit Cred</option>
+    <option value="4688">4688 Process Create</option>
+    <option value="vulnerability">Vulnerability</option>
+  </select>
+  <select class="filter-select" id="filter-time" onchange="applyFilters()">
+    <option value="">All Time</option>
+    <option value="5">Last 5 min</option>
+    <option value="30">Last 30 min</option>
+    <option value="60">Last 1 hour</option>
+    <option value="480">Last 8 hours</option>
+  </select>
+  <button class="btn btn-red" onclick="clearFilters()">Clear</button>
+  <button class="btn btn-green" onclick="exportCSV()">Export CSV</button>
+  <span class="live-badge" id="live-badge">&#9679; LIVE</span>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-pill red"><b id="s-critical">0</b> Critical</div>
+  <div class="stat-pill orange"><b id="s-high">0</b> High</div>
+  <div class="stat-pill green"><b id="s-medium">0</b> Medium</div>
+  <div class="stat-pill blue"><b id="s-total">0</b> Total Events</div>
+  <div class="stat-pill"><b id="s-users">0</b> Users</div>
+  <div class="stat-pill"><b id="s-ips">0</b> Unique IPs</div>
+  <div class="stat-pill"><b id="s-filtered">0</b> Showing</div>
+</div>
+
+<div class="log-table-wrap">
+  <table id="log-table">
+    <thead>
+      <tr>
+        <th onclick="sortBy('timestamp')">Time <span id="sort-timestamp"></span></th>
+        <th onclick="sortBy('severity')">Severity <span id="sort-severity"></span></th>
+        <th onclick="sortBy('username')">User <span id="sort-username"></span></th>
+        <th onclick="sortBy('source_ip')">Source IP <span id="sort-source_ip"></span></th>
+        <th onclick="sortBy('event_id')">Event ID <span id="sort-event_id"></span></th>
+        <th onclick="sortBy('risk_score')">Risk Score <span id="sort-risk_score"></span></th>
+        <th>Agent Host</th>
+        <th>Reasons</th>
+      </tr>
+    </thead>
+    <tbody id="log-body">
+      <tr><td colspan="8" class="empty-state"><div class="big">📋</div>No events yet — waiting for data...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="pagination">
+  <button class="page-btn" id="btn-prev" onclick="changePage(-1)" disabled>&#8592; Prev</button>
+  <span id="page-info">Page 1</span>
+  <button class="page-btn" id="btn-next" onclick="changePage(1)" disabled>Next &#8594;</button>
+  <span style="margin-left:.5rem" id="page-count"></span>
+</div>
+
+<script>
+const socket = io();
+let allEvents = [];
+let filtered = [];
+let sortKey = 'timestamp';
+let sortDir = -1;
+let currentPage = 1;
+const PAGE_SIZE = 50;
+let expandedRow = null;
+
+// ── Load existing events on page open ─────────────────────
+fetch('/events').then(r=>r.json()).then(events => {
+  events.forEach(e => addEvent(e));
+  applyFilters();
+});
+
+// ── Live events via SocketIO ───────────────────────────────
+socket.on('new_event', e => {
+  addEvent(e);
+  applyFilters();
+  flashLive();
+});
+
+function addEvent(e) {
+  if (!e || typeof e !== 'object') return;
+  // Normalize severity
+  const score = e.risk_score || 0;
+  if (!e.severity) {
+    if (score >= 250) e.severity = 'CRITICAL';
+    else if (score >= 150) e.severity = 'HIGH';
+    else if (score >= 75)  e.severity = 'MEDIUM';
+    else if (score > 0)    e.severity = 'LOW';
+    else e.severity = 'INFO';
+  }
+  if (!e.timestamp) e.timestamp = new Date().toISOString();
+  allEvents.unshift(e);
+  if (allEvents.length > 2000) allEvents = allEvents.slice(0, 2000);
+}
+
+// ── Filters ────────────────────────────────────────────────
+function applyFilters() {
+  const search   = document.getElementById('search-input').value.toLowerCase();
+  const severity = document.getElementById('filter-severity').value;
+  const type     = document.getElementById('filter-type').value;
+  const timeMin  = parseInt(document.getElementById('filter-time').value) || 0;
+  const now      = Date.now();
+
+  filtered = allEvents.filter(e => {
+    if (severity && e.severity !== severity) return false;
+    if (type) {
+      const eid = String(e.event_id || e.type || '');
+      if (!eid.includes(type)) return false;
+    }
+    if (timeMin) {
+      const t = new Date(e.timestamp).getTime();
+      if (now - t > timeMin * 60000) return false;
+    }
+    if (search) {
+      const haystack = JSON.stringify(e).toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  filtered.sort((a,b) => {
+    let av = a[sortKey] || '', bv = b[sortKey] || '';
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    return av < bv ? sortDir : av > bv ? -sortDir : 0;
+  });
+
+  currentPage = 1;
+  updateStats();
+  renderTable();
+}
+
+function clearFilters() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('filter-severity').value = '';
+  document.getElementById('filter-type').value = '';
+  document.getElementById('filter-time').value = '';
+  applyFilters();
+}
+
+// ── Sort ───────────────────────────────────────────────────
+function sortBy(key) {
+  if (sortKey === key) sortDir *= -1;
+  else { sortKey = key; sortDir = -1; }
+  document.querySelectorAll('thead th span').forEach(s => s.textContent = '');
+  const el = document.getElementById('sort-'+key);
+  if (el) el.textContent = sortDir === -1 ? ' ↓' : ' ↑';
+  document.querySelectorAll('thead th').forEach(th => th.classList.remove('sorted'));
+  applyFilters();
+}
+
+// ── Stats ──────────────────────────────────────────────────
+function updateStats() {
+  const crit = allEvents.filter(e=>e.severity==='CRITICAL').length;
+  const high = allEvents.filter(e=>e.severity==='HIGH').length;
+  const med  = allEvents.filter(e=>e.severity==='MEDIUM').length;
+  const users = new Set(allEvents.map(e=>e.username).filter(Boolean)).size;
+  const ips   = new Set(allEvents.map(e=>e.source_ip).filter(Boolean)).size;
+  document.getElementById('s-critical').textContent = crit;
+  document.getElementById('s-high').textContent     = high;
+  document.getElementById('s-medium').textContent   = med;
+  document.getElementById('s-total').textContent    = allEvents.length;
+  document.getElementById('s-users').textContent    = users;
+  document.getElementById('s-ips').textContent      = ips;
+  document.getElementById('s-filtered').textContent = filtered.length;
+}
+
+// ── Render ─────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('log-body');
+  const start = (currentPage-1)*PAGE_SIZE;
+  const page  = filtered.slice(start, start+PAGE_SIZE);
+  const total = Math.ceil(filtered.length/PAGE_SIZE);
+
+  document.getElementById('page-info').textContent  = `Page ${currentPage} of ${Math.max(1,total)}`;
+  document.getElementById('page-count').textContent = `${filtered.length} events`;
+  document.getElementById('btn-prev').disabled = currentPage <= 1;
+  document.getElementById('btn-next').disabled = currentPage >= total;
+
+  if (!page.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><div class="big">🔍</div>No events match your filters</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = page.map((e, idx) => {
+    const globalIdx = start + idx;
+    const ts   = e.timestamp ? e.timestamp.replace('T',' ').slice(0,19) : '—';
+    const sev  = e.severity || 'INFO';
+    const user = e.username || '—';
+    const ip   = e.source_ip || '—';
+    const eid  = e.event_id || e.type || '—';
+    const score = Math.min(e.risk_score || 0, 300);
+    const pct   = Math.round(score/300*100);
+    const fillClass = score >= 250 ? 'critical' : score >= 150 ? 'high' : '';
+    const reasons = (e.reasons||[]).slice(0,2).join(', ') || '—';
+    const agent = e.agent_host || '—';
+    return `<tr onclick="toggleExpand(${globalIdx}, this)" data-idx="${globalIdx}">
+      <td style="color:var(--subtext);font-size:.72rem">${ts}</td>
+      <td><span class="sev sev-${sev}">${sev}</span></td>
+      <td style="color:var(--accent)">${user}</td>
+      <td style="font-family:monospace">${ip}</td>
+      <td style="color:var(--subtext)">${eid}</td>
+      <td><span style="font-family:monospace">${score}</span><span class="score-bar"><span class="score-fill ${fillClass}" style="width:${pct}%"></span></span></td>
+      <td style="color:var(--subtext)">${agent}</td>
+      <td class="wrap" style="color:var(--subtext);font-size:.72rem">${reasons}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Expand row ─────────────────────────────────────────────
+function toggleExpand(idx, row) {
+  const existing = document.getElementById('expand-'+idx);
+  if (existing) {
+    existing.remove();
+    row.classList.remove('expanded');
+    return;
+  }
+  document.querySelectorAll('.expand-row').forEach(r=>r.remove());
+  document.querySelectorAll('tbody tr').forEach(r=>r.classList.remove('expanded'));
+  row.classList.add('expanded');
+
+  const e = filtered[idx];
+  if (!e) return;
+
+  const mitreTags = (e.mitre_techniques||[]).map(t => {
+    const id = typeof t === 'object' ? t.id : t;
+    const name = typeof t === 'object' ? (t.name||'') : '';
+    return `<span class="mitre-tag" title="${name}">${id}</span>`;
+  }).join('') || '<span style="color:var(--subtext)">None detected</span>';
+
+  const reasonsList = (e.reasons||[]).map(r=>`<li>${r}</li>`).join('') || '<li style="color:var(--subtext)">No reasons recorded</li>';
+
+  const expandRow = document.createElement('tr');
+  expandRow.className = 'expand-row';
+  expandRow.id = 'expand-'+idx;
+  expandRow.innerHTML = `<td colspan="8"><div class="expand-content">
+    <div class="expand-grid">
+      <div class="expand-field"><span class="expand-label">Username</span><span class="expand-value">${e.username||'—'}</span></div>
+      <div class="expand-field"><span class="expand-label">Source IP</span><span class="expand-value">${e.source_ip||'—'}</span></div>
+      <div class="expand-field"><span class="expand-label">Risk Score</span><span class="expand-value">${e.risk_score||0}</span></div>
+      <div class="expand-field"><span class="expand-label">Event ID</span><span class="expand-value">${e.event_id||e.type||'—'}</span></div>
+      <div class="expand-field"><span class="expand-label">Agent Host</span><span class="expand-value">${e.agent_host||'—'}</span></div>
+      <div class="expand-field"><span class="expand-label">Agent OS</span><span class="expand-value">${e.agent_os||'—'}</span></div>
+      <div class="expand-field"><span class="expand-label">Origin</span><span class="expand-value">${e.origin||e.logon_type||'—'}</span></div>
+      <div class="expand-field"><span class="expand-label">Confidence</span><span class="expand-value">${e.confidence ? (e.confidence*100).toFixed(0)+'%' : '—'}</span></div>
+      <div class="expand-field"><span class="expand-label">Timestamp</span><span class="expand-value">${e.timestamp||'—'}</span></div>
+    </div>
+    <div style="margin-bottom:.6rem">
+      <div class="expand-label" style="margin-bottom:.35rem">MITRE ATT&CK Techniques</div>
+      <div>${mitreTags}</div>
+    </div>
+    <div>
+      <div class="expand-label" style="margin-bottom:.35rem">Detection Reasons</div>
+      <ul class="reasons-list">${reasonsList}</ul>
+    </div>
+  </div></td>`;
+  row.insertAdjacentElement('afterend', expandRow);
+}
+
+// ── Pagination ─────────────────────────────────────────────
+function changePage(dir) {
+  const total = Math.ceil(filtered.length/PAGE_SIZE);
+  currentPage = Math.max(1, Math.min(total, currentPage+dir));
+  renderTable();
+}
+
+// ── Export CSV ─────────────────────────────────────────────
+function exportCSV() {
+  const headers = ['timestamp','severity','username','source_ip','event_id','risk_score','agent_host','reasons'];
+  const rows = filtered.map(e => headers.map(h => {
+    let v = h === 'reasons' ? (e.reasons||[]).join(' | ') : (e[h]||'');
+    return '"'+String(v).replace(/"/g,'""')+'"';
+  }).join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sentinel_logs_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+// ── Live flash ─────────────────────────────────────────────
+let liveTimer;
+function flashLive() {
+  const badge = document.getElementById('live-badge');
+  badge.style.background = '#1c3a5e';
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(()=>badge.style.background='', 500);
+}
+
+// Initial sort indicator
+document.getElementById('sort-timestamp').textContent = ' ↓';
+</script>
+</body>
+</html>

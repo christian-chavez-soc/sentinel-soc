@@ -1,0 +1,97 @@
+{
+    "christianchavez111@live.com": [
+        {
+            "host": "STEALTH",
+            "time": 1773617687
+        }
+    ],
+    "testuser": [
+        {
+            "host": "STEALTH",
+            "time": 1773107953
+        }
+    ],
+    "chris": [
+        {
+            "host": "-",
+            "time": 1773605517
+        }
+    ],
+    "administrator": [
+        {
+            "host": "LINUX-SERVER-01",
+            "time": 1773627320
+        },
+        {
+            "host": "WORKSTATION-01",
+            "time": 1773627325
+        },
+        {
+            "host": "WORKSTATION-02",
+            "time": 1773627333
+        }
+    ],
+    "Administrator": [
+        {
+            "host": "STEALTH",
+            "time": 1773616966
+        }
+    ],
+    "jsmith": [
+        {
+            "host": "WORKSTATION-01",
+            "time": 1773627332
+        },
+        {
+            "host": "LINUX-SERVER-01",
+            "time": 1773627334
+        },
+        {
+            "host": "WORKSTATION-02",
+            "time": 1773627338
+        }
+    ],
+    "svc_account": [
+        {
+            "host": "WORKSTATION-01",
+            "time": 1773627312
+        },
+        {
+            "host": "WORKSTATION-02",
+            "time": 1773627313
+        },
+        {
+            "host": "LINUX-SERVER-01",
+            "time": 1773627316
+        }
+    ],
+    "attacker": [
+        {
+            "host": "WORKSTATION-02",
+            "time": 1773627328
+        },
+        {
+            "host": "WORKSTATION-01",
+            "time": 1773627332
+        },
+        {
+            "host": "LINUX-SERVER-01",
+            "time": 1773627641,
+            "failed": false
+        }
+    ],
+    "bjones": [
+        {
+            "host": "WORKSTATION-01",
+            "time": 1773627309
+        },
+        {
+            "host": "LINUX-SERVER-01",
+            "time": 1773627341
+        },
+        {
+            "host": "WORKSTATION-02",
+            "time": 1773627348
+        }
+    ]
+}

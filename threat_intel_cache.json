@@ -1,0 +1,56 @@
+{
+  "ip_185.220.101.45": {
+    "data": {
+      "ip": "185.220.101.45",
+      "score": 0,
+      "malicious": false,
+      "source": "local"
+    },
+    "cached_at": "2026-03-15T20:21:05.007157"
+  },
+  "ip_203.0.113.42": {
+    "data": {
+      "ip": "203.0.113.42",
+      "score": 0,
+      "malicious": false,
+      "source": "local"
+    },
+    "cached_at": "2026-03-15T20:21:05.162114"
+  },
+  "ip_192.168.1.101": {
+    "data": {
+      "ip": "192.168.1.101",
+      "score": 0,
+      "malicious": false,
+      "source": "local"
+    },
+    "cached_at": "2026-03-15T20:21:05.433792"
+  },
+  "ip_198.51.100.1": {
+    "data": {
+      "ip": "198.51.100.1",
+      "score": 0,
+      "malicious": false,
+      "source": "local"
+    },
+    "cached_at": "2026-03-15T20:21:06.028717"
+  },
+  "ip_10.0.0.5": {
+    "data": {
+      "ip": "10.0.0.5",
+      "score": 0,
+      "malicious": false,
+      "source": "local"
+    },
+    "cached_at": "2026-03-15T20:21:06.576019"
+  },
+  "ip_192.168.1.102": {
+    "data": {
+      "ip": "192.168.1.102",
+      "score": 0,
+      "malicious": false,
+      "source": "local"
+    },
+    "cached_at": "2026-03-15T20:21:11.559308"
+  }
+}

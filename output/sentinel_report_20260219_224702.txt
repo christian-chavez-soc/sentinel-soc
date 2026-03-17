@@ -1,0 +1,20 @@
+=== SENTINEL SECURITY REPORT ===
+Generated: 2026-02-19 22:47:02.531254
+
+Dynamic Loader Test: PASS
+Details: Sentinel module system is working
+
+Network Exposure Check: WARNING
+Details: External connections detected: 10 active session(s)
+
+Startup Persistence Check: WARNING
+Details: Startup entries detected:
+LGHUB -> "C:\Program Files\LGHUB\system_tray\lghub_system_tray.exe" --minimized
+EpicGamesLauncher -> "C:\Program Files\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe" -silent -launchcontext=boot
+SignalRgb -> "C:\Users\chris\AppData\Local\VortxEngine\SignalRgbLauncher.exe" --silent
+EADM -> "C:\Program Files\Electronic Arts\EA Desktop\EA Desktop\EALauncher.exe" -silent
+Startup Folder Entry -> desktop.ini
+Startup Folder Entry -> Ollama.lnk
+
+Overall Risk Score: 3
+Risk Level: MEDIUM

@@ -1,0 +1,176 @@
+{
+    "christianchavez111@live.com": {
+        "known_hosts": [
+            "STEALTH"
+        ],
+        "login_hours": [
+            20,
+            21,
+            22,
+            15,
+            18
+        ],
+        "first_seen": "2026-03-09 20:58:41.201910",
+        "last_seen": "2026-03-15 18:34:47.040198"
+    },
+    "testuser": {
+        "known_hosts": [
+            "STEALTH"
+        ],
+        "login_hours": [
+            20
+        ],
+        "first_seen": "2026-03-09 20:59:13.235833",
+        "last_seen": "2026-03-09 20:59:13.235839"
+    },
+    "chris": {
+        "known_hosts": [
+            "-"
+        ],
+        "login_hours": [
+            21,
+            22,
+            20,
+            15
+        ],
+        "first_seen": "2026-03-11 21:49:39.279841",
+        "last_seen": "2026-03-15 15:21:45.966973"
+    },
+    "administrator": {
+        "known_hosts": [
+            "STEALTH",
+            "LINUX-SERVER-01",
+            "WORKSTATION-01",
+            "WORKSTATION-02"
+        ],
+        "login_hours": [
+            17,
+            20,
+            21
+        ],
+        "first_seen": "2026-03-15 17:34:51.960394",
+        "last_seen": "2026-03-15 21:23:57.107432",
+        "event_count": 87,
+        "successful_logons": 48,
+        "login_days": [
+            6
+        ],
+        "logon_types": [
+            3,
+            10,
+            2
+        ],
+        "anomaly_score": 0.0007769088692979965,
+        "failed_logons": 39
+    },
+    "Administrator": {
+        "known_hosts": [
+            "STEALTH"
+        ],
+        "login_hours": [
+            18
+        ],
+        "first_seen": "2026-03-15 18:22:46.662964",
+        "last_seen": "2026-03-15 18:28:06.749030"
+    },
+    "jsmith": {
+        "known_hosts": [
+            "WORKSTATION-01",
+            "WORKSTATION-02",
+            "LINUX-SERVER-01"
+        ],
+        "login_hours": [
+            20,
+            21
+        ],
+        "login_days": [
+            6
+        ],
+        "logon_types": [
+            3,
+            2,
+            10
+        ],
+        "failed_logons": 30,
+        "successful_logons": 32,
+        "first_seen": "2026-03-15 20:14:17.902566",
+        "anomaly_score": 3.0220856491629764,
+        "event_count": 62,
+        "last_seen": "2026-03-15 21:23:42.373106"
+    },
+    "svc_account": {
+        "known_hosts": [
+            "WORKSTATION-02",
+            "LINUX-SERVER-01",
+            "WORKSTATION-01"
+        ],
+        "login_hours": [
+            20,
+            21
+        ],
+        "login_days": [
+            6
+        ],
+        "logon_types": [
+            2,
+            10,
+            3
+        ],
+        "failed_logons": 31,
+        "successful_logons": 39,
+        "first_seen": "2026-03-15 20:14:18.417473",
+        "anomaly_score": 0.004458264706152241,
+        "event_count": 70,
+        "last_seen": "2026-03-15 21:23:52.124870"
+    },
+    "attacker": {
+        "known_hosts": [
+            "WORKSTATION-02",
+            "WORKSTATION-01",
+            "LINUX-SERVER-01"
+        ],
+        "login_hours": [
+            20,
+            21
+        ],
+        "login_days": [
+            6
+        ],
+        "logon_types": [
+            2,
+            10,
+            3
+        ],
+        "failed_logons": 30,
+        "successful_logons": 47,
+        "first_seen": "2026-03-15 20:14:18.430675",
+        "anomaly_score": 0.002287084990361114,
+        "event_count": 77,
+        "last_seen": "2026-03-15 21:23:57.171057"
+    },
+    "bjones": {
+        "known_hosts": [
+            "LINUX-SERVER-01",
+            "WORKSTATION-02",
+            "WORKSTATION-01"
+        ],
+        "login_hours": [
+            20,
+            21
+        ],
+        "login_days": [
+            6
+        ],
+        "logon_types": [
+            3,
+            2,
+            10
+        ],
+        "failed_logons": 18,
+        "successful_logons": 36,
+        "first_seen": "2026-03-15 20:14:18.949418",
+        "anomaly_score": 0.025356574020014986,
+        "event_count": 54,
+        "last_seen": "2026-03-15 21:23:51.493725"
+    }
+}

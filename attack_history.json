@@ -1,0 +1,83 @@
+{
+    "-": {
+        "username": "chris",
+        "last_seen": "2026-03-15 15:21:45.979692",
+        "risk": 0
+    },
+    "STEALTH": {
+        "username": "christianchavez111@live.com",
+        "last_seen": "2026-03-15 18:34:47.045200",
+        "risk": 0
+    },
+    "WORKSTATION-01": {
+        "username": "administrator",
+        "first_seen": "2026-03-15 20:14:17.908808",
+        "last_seen": "2026-03-15 21:23:55.805913",
+        "risk": 640,
+        "seen_count": 115
+    },
+    "user_jsmith": {
+        "total_events": 62,
+        "total_risk": 5160,
+        "origins": [
+            "WORKSTATION-01",
+            "WORKSTATION-02",
+            "LINUX-SERVER-01"
+        ],
+        "peak_risk": 360
+    },
+    "WORKSTATION-02": {
+        "username": "administrator",
+        "first_seen": "2026-03-15 20:14:18.426300",
+        "last_seen": "2026-03-15 21:23:56.425766",
+        "risk": 770,
+        "seen_count": 118
+    },
+    "user_svc_account": {
+        "total_events": 70,
+        "total_risk": 9790,
+        "origins": [
+            "WORKSTATION-02",
+            "LINUX-SERVER-01",
+            "WORKSTATION-01"
+        ],
+        "peak_risk": 770
+    },
+    "user_attacker": {
+        "total_events": 77,
+        "total_risk": 10930,
+        "origins": [
+            "WORKSTATION-02",
+            "WORKSTATION-01",
+            "LINUX-SERVER-01"
+        ],
+        "peak_risk": 750
+    },
+    "LINUX-SERVER-01": {
+        "username": "attacker",
+        "first_seen": "2026-03-15 20:14:18.955606",
+        "last_seen": "2026-03-15 21:23:57.179480",
+        "risk": 600,
+        "seen_count": 117
+    },
+    "user_bjones": {
+        "total_events": 54,
+        "total_risk": 3290,
+        "origins": [
+            "LINUX-SERVER-01",
+            "WORKSTATION-02",
+            "WORKSTATION-01"
+        ],
+        "peak_risk": 230
+    },
+    "user_administrator": {
+        "total_events": 87,
+        "total_risk": 30250,
+        "origins": [
+            "LINUX-SERVER-01",
+            "WORKSTATION-01",
+            "WORKSTATION-02"
+        ],
+        "peak_risk": 980
+    }
+}

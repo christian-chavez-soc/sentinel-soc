@@ -1,0 +1,323 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<title>IR Playbooks - Sentinel SOC</title>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<script src="/static/nav.js"></script>
+<style>
+:root{--bg:#0f1117;--panel:#161b22;--border:#30363d;--accent:#58a6ff;--text:#e6edf3;--subtext:#8b949e;--red:#f85149;--orange:#d29922;--green:#3fb950;--purple:#a371f7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:1.5rem;font-size:13px}
+h1{font-size:1.4rem;font-weight:600;margin-bottom:.25rem}
+.subtitle{color:var(--subtext);font-size:.85rem;margin-bottom:1.5rem}
+.top-bar{display:flex;gap:.75rem;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap}
+.btn{padding:.45rem 1rem;border-radius:6px;border:none;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-blue{background:#1c3a5e;color:var(--accent);border:1px solid #58a6ff44}
+.btn-blue:hover{background:#1e4a7a}
+.btn-green{background:#1c3d1c;color:var(--green);border:1px solid #3fb95044}
+.btn-green:hover{background:#1e4d1e}
+.btn-red{background:#3d1c1c;color:var(--red);border:1px solid #f8514944}
+.select{background:#161b22;border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.4rem .65rem;font-size:.78rem;outline:none}
+.stats-bar{display:flex;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.stat-pill{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.3rem .75rem;font-size:.75rem;color:var(--subtext)}
+.stat-pill b{color:var(--text)}
+.stat-pill.red b{color:var(--red)}
+.stat-pill.green b{color:var(--green)}
+.stat-pill.blue b{color:var(--accent)}
+.layout{display:grid;grid-template-columns:320px 1fr;gap:1rem}
+@media(max-width:800px){.layout{grid-template-columns:1fr}}
+/* Incident list */
+.incident-list{display:flex;flex-direction:column;gap:.5rem;max-height:calc(100vh - 200px);overflow-y:auto}
+.incident-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;cursor:pointer;transition:border-color .15s}
+.incident-card:hover{border-color:var(--accent)}
+.incident-card.active{border-color:var(--accent);background:#0d1f2d}
+.inc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.35rem}
+.inc-id{font-family:monospace;font-size:.72rem;color:var(--subtext)}
+.priority-badge{padding:.1rem .45rem;border-radius:4px;font-size:.68rem;font-weight:700}
+.inc-title{font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:.25rem}
+.inc-meta{font-size:.72rem;color:var(--subtext)}
+.inc-progress{margin-top:.5rem}
+.progress-track{background:#21262d;border-radius:3px;height:4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;background:var(--green);transition:width .5s}
+.progress-label{font-size:.68rem;color:var(--subtext);margin-top:.2rem}
+/* Playbook detail */
+.playbook-detail{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:1.25rem}
+.playbook-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;color:var(--subtext);gap:.5rem}
+.playbook-empty .big{font-size:2.5rem}
+.detail-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+.detail-title{font-size:1.1rem;font-weight:600}
+.detail-meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem 1rem;margin-bottom:1rem;padding:.75rem;background:#0d1117;border-radius:6px}
+.meta-field{display:flex;flex-direction:column;gap:.1rem}
+.meta-label{font-size:.65rem;color:var(--subtext);text-transform:uppercase;letter-spacing:.06em}
+.meta-value{font-size:.78rem;font-family:monospace;color:var(--text)}
+/* Steps */
+.steps-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+.steps-header h3{font-size:.85rem;font-weight:600;color:var(--subtext);text-transform:uppercase;letter-spacing:.06em}
+.phase-filter{display:flex;gap:.3rem;flex-wrap:wrap}
+.phase-btn{padding:.18rem .55rem;border-radius:4px;font-size:.7rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--subtext);transition:all .15s}
+.phase-btn:hover{color:var(--text)}
+.phase-btn.active{border-color:currentColor}
+.step{display:flex;gap:.75rem;padding:.65rem .75rem;border-radius:6px;margin-bottom:.4rem;border:1px solid var(--border);background:#0d1117;transition:background .15s;cursor:pointer}
+.step:hover{background:#111820}
+.step.done{opacity:.6}
+.step-num{font-size:.72rem;font-family:monospace;color:var(--subtext);min-width:24px;margin-top:.1rem}
+.step-phase{display:inline-block;padding:.12rem .45rem;border-radius:4px;font-size:.65rem;font-weight:700;min-width:70px;text-align:center;margin-bottom:.25rem}
+.step-action{font-size:.8rem;color:var(--text);line-height:1.5}
+.step-checkbox{width:16px;height:16px;border-radius:3px;border:1px solid var(--border);flex-shrink:0;margin-top:.15rem;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.step-checkbox.checked{background:var(--green);border-color:var(--green)}
+.step-checkbox.checked::after{content:"✓";color:#fff;font-size:.65rem;font-weight:700}
+.step-content{flex:1}
+.step-notes{margin-top:.35rem;font-size:.75rem;color:var(--subtext);font-style:italic}
+/* Overall progress bar */
+.overall-progress{margin-bottom:1rem}
+.overall-track{background:#21262d;border-radius:4px;height:10px;overflow:hidden;margin:.35rem 0}
+.overall-fill{height:100%;border-radius:4px;background:var(--green);transition:width .5s}
+.overall-label{display:flex;justify-content:space-between;font-size:.72rem;color:var(--subtext)}
+/* Empty state */
+.no-incidents{text-align:center;padding:2rem;color:var(--subtext)}
+</style>
+</head>
+<body>
+<h1>Incident Response Playbooks</h1>
+<p class="subtitle">Auto-generated step-by-step response guides based on detected threats</p>
+
+<div class="top-bar">
+  <button class="btn btn-blue" onclick="generateFromLatest()">&#9889; Generate from Latest Alert</button>
+  <button class="btn btn-green" onclick="generateFromTemplate()">&#43; New from Template</button>
+  <select class="select" id="template-select">
+    <option value="">Select template...</option>
+  </select>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-pill red"><b id="s-open">0</b> Open</div>
+  <div class="stat-pill green"><b id="s-closed">0</b> Closed</div>
+  <div class="stat-pill blue"><b id="s-total">0</b> Total</div>
+  <div class="stat-pill"><b id="s-avg">0%</b> Avg Completion</div>
+</div>
+
+<div class="layout">
+  <!-- Left: incident list -->
+  <div>
+    <div class="incident-list" id="incident-list">
+      <div class="no-incidents">No incidents yet.<br>Generate one from an alert above.</div>
+    </div>
+  </div>
+  <!-- Right: playbook detail -->
+  <div class="playbook-detail" id="playbook-detail">
+    <div class="playbook-empty">
+      <div class="big">📋</div>
+      <div>Select an incident to view playbook</div>
+      <div style="font-size:.75rem">or generate one from a live alert</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const socket = io();
+let incidents = [];
+let activeIdx = null;
+let templates = [];
+
+// Load templates
+fetch('/api/playbooks/templates').then(r=>r.json()).then(data => {
+  templates = data;
+  const sel = document.getElementById('template-select');
+  data.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.technique_id;
+    opt.textContent = t.title;
+    sel.appendChild(opt);
+  });
+});
+
+// Load existing incidents
+fetch('/api/playbooks/list').then(r=>r.json()).then(data => {
+  incidents = data;
+  renderList();
+  updateStats();
+});
+
+// Live: auto-generate on new critical event
+socket.on('new_event', e => {
+  const score = e.risk_score || 0;
+  if (score >= 200) {
+    fetch('/api/playbooks/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(e)
+    }).then(r=>r.json()).then(pb => {
+      incidents.unshift(pb);
+      renderList();
+      updateStats();
+    });
+  }
+});
+
+function generateFromLatest() {
+  fetch('/events').then(r=>r.json()).then(events => {
+    const sorted = events.sort((a,b) => (b.risk_score||0)-(a.risk_score||0));
+    if (!sorted.length) { alert('No events found. Run simulate_attack.py first.'); return; }
+    const top = sorted[0];
+    fetch('/api/playbooks/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(top)
+    }).then(r=>r.json()).then(pb => {
+      incidents.unshift(pb);
+      renderList();
+      updateStats();
+      showDetail(0);
+    });
+  });
+}
+
+function generateFromTemplate() {
+  const tid = document.getElementById('template-select').value;
+  if (!tid) { alert('Select a template first'); return; }
+  const mockEvent = {
+    username: 'analyst', source_ip: '0.0.0.0',
+    risk_score: 150, agent_host: 'SENTINEL',
+    mitre_techniques: [{id: tid, name: ''}]
+  };
+  fetch('/api/playbooks/generate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(mockEvent)
+  }).then(r=>r.json()).then(pb => {
+    incidents.unshift(pb);
+    renderList();
+    updateStats();
+    showDetail(0);
+  });
+}
+
+function renderList() {
+  const el = document.getElementById('incident-list');
+  if (!incidents.length) {
+    el.innerHTML = '<div class="no-incidents">No incidents yet.<br>Generate one from an alert above.</div>';
+    return;
+  }
+  el.innerHTML = incidents.map((inc, idx) => {
+    const pct = inc.completion_pct || 0;
+    const activeClass = idx === activeIdx ? 'active' : '';
+    return `<div class="incident-card ${activeClass}" onclick="showDetail(${idx})">
+      <div class="inc-header">
+        <span class="inc-id">${inc.id}</span>
+        <span class="priority-badge" style="background:${inc.priority_color}22;color:${inc.priority_color};border:1px solid ${inc.priority_color}44">${inc.priority}</span>
+      </div>
+      <div class="inc-title">${inc.title}</div>
+      <div class="inc-meta">${inc.category} &middot; ${inc.affected_user} &middot; ${(inc.created_at||'').slice(0,16).replace('T',' ')}</div>
+      <div class="inc-progress">
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-label">${pct}% complete &middot; ${inc.total_steps - (inc.steps||[]).filter(s=>s.status==='done').length} steps remaining</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showDetail(idx) {
+  activeIdx = idx;
+  renderList();
+  const inc = incidents[idx];
+  if (!inc) return;
+  const done = (inc.steps||[]).filter(s=>s.status==='done').length;
+  const pct  = inc.total_steps ? Math.round(done/inc.total_steps*100) : 0;
+  inc.completion_pct = pct;
+
+  const detail = document.getElementById('playbook-detail');
+  detail.innerHTML = `
+    <div class="detail-header">
+      <div>
+        <div style="font-size:.72rem;color:var(--subtext);margin-bottom:.2rem">${inc.id} &middot; ${inc.category}</div>
+        <div class="detail-title">${inc.title}</div>
+      </div>
+      <span class="priority-badge" style="background:${inc.priority_color}22;color:${inc.priority_color};border:1px solid ${inc.priority_color}44;padding:.25rem .75rem;border-radius:6px;font-size:.78rem">${inc.priority}</span>
+    </div>
+    <div class="detail-meta">
+      <div class="meta-field"><span class="meta-label">Affected User</span><span class="meta-value">${inc.affected_user||'—'}</span></div>
+      <div class="meta-field"><span class="meta-label">Host</span><span class="meta-value">${inc.affected_host||'—'}</span></div>
+      <div class="meta-field"><span class="meta-label">Source IP</span><span class="meta-value">${inc.source_ip||'—'}</span></div>
+      <div class="meta-field"><span class="meta-label">Risk Score</span><span class="meta-value">${inc.risk_score||0}</span></div>
+      <div class="meta-field"><span class="meta-label">Technique</span><span class="meta-value">${inc.technique_id||'—'}</span></div>
+      <div class="meta-field"><span class="meta-label">Created</span><span class="meta-value">${(inc.created_at||'').slice(0,16).replace('T',' ')}</span></div>
+    </div>
+    <div class="overall-progress">
+      <div class="overall-label"><span>Response Progress</span><span>${done}/${inc.total_steps} steps</span></div>
+      <div class="overall-track"><div class="overall-fill" id="overall-fill" style="width:${pct}%"></div></div>
+      <div class="overall-label"><span>${pct}% complete</span><span id="status-label" style="color:${pct===100?'var(--green)':'var(--subtext)'}">
+        ${pct===100?'&#10003; RESOLVED':'In Progress'}
+      </span></div>
+    </div>
+    <div class="steps-header">
+      <h3>Response Steps</h3>
+      <div class="phase-filter">
+        <button class="phase-btn active" onclick="filterPhase('all',this)" style="color:var(--subtext)">All</button>
+        ${['Detect','Contain','Eradicate','Recover','Review','Document'].map(p=>
+          `<button class="phase-btn" onclick="filterPhase('${p}',this)" style="color:${getPhaseColor(p)}">${p}</button>`
+        ).join('')}
+      </div>
+    </div>
+    <div id="steps-list">
+      ${(inc.steps||[]).map((s,i) => renderStep(s,i,idx)).join('')}
+    </div>
+  `;
+}
+
+function renderStep(s, stepIdx, incIdx) {
+  const done = s.status === 'done';
+  return `<div class="step ${done?'done':''}" id="step-${stepIdx}" onclick="toggleStep(${incIdx},${stepIdx})">
+    <div class="step-checkbox ${done?'checked':''}"></div>
+    <div class="step-content">
+      <div><span class="step-phase" style="background:${s.color}22;color:${s.color}">${s.phase}</span></div>
+      <div class="step-action">${s.action}</div>
+      ${s.notes ? `<div class="step-notes">Note: ${s.notes}</div>` : ''}
+    </div>
+    <div class="step-num">#${s.id}</div>
+  </div>`;
+}
+
+function toggleStep(incIdx, stepIdx) {
+  const inc  = incidents[incIdx];
+  const step = inc.steps[stepIdx];
+  step.status = step.status === 'done' ? 'pending' : 'done';
+  step.completed_at = step.status === 'done' ? new Date().toISOString() : null;
+  const done = inc.steps.filter(s=>s.status==='done').length;
+  inc.completion_pct = inc.total_steps ? Math.round(done/inc.total_steps*100) : 0;
+  showDetail(incIdx);
+  updateStats();
+  // Save to server
+  fetch('/api/playbooks/update', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({id: inc.id, steps: inc.steps, completion_pct: inc.completion_pct})
+  }).catch(()=>{});
+}
+
+function filterPhase(phase, btn) {
+  document.querySelectorAll('.phase-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.step').forEach(el => {
+    if (phase === 'all') { el.style.display = 'flex'; return; }
+    const phaseEl = el.querySelector('.step-phase');
+    el.style.display = phaseEl && phaseEl.textContent === phase ? 'flex' : 'none';
+  });
+}
+
+function getPhaseColor(p) {
+  const colors = {Detect:'#58a6ff',Contain:'#f85149',Eradicate:'#d29922',Recover:'#3fb950',Review:'#a371f7',Document:'#8b949e'};
+  return colors[p] || '#8b949e';
+}
+
+function updateStats() {
+  const open   = incidents.filter(i=>i.completion_pct < 100).length;
+  const closed = incidents.filter(i=>i.completion_pct === 100).length;
+  const avg    = incidents.length ? Math.round(incidents.reduce((a,i)=>a+(i.completion_pct||0),0)/incidents.length) : 0;
+  document.getElementById('s-open').textContent   = open;
+  document.getElementById('s-closed').textContent = closed;
+  document.getElementById('s-total').textContent  = incidents.length;
+  document.getElementById('s-avg').textContent    = avg + '%';
+}
+</script>
+</body>
+</html>

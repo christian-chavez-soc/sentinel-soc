@@ -1,0 +1,221 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<title>Threat Hunting - Sentinel SOC</title>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<script src="/static/nav.js"></script>
+<style>
+:root{--bg:#0f1117;--panel:#161b22;--border:#30363d;--accent:#58a6ff;--text:#e6edf3;--subtext:#8b949e;--red:#f85149;--orange:#d29922;--green:#3fb950;--purple:#a371f7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',monospace;padding:1.5rem;font-size:13px}
+h1{font-size:1.4rem;font-weight:600;margin-bottom:.25rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.subtitle{color:var(--subtext);font-size:.85rem;margin-bottom:1.5rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.hunt-layout{display:grid;grid-template-columns:280px 1fr;gap:1rem;min-height:calc(100vh - 140px)}
+.sidebar{display:flex;flex-direction:column;gap:.75rem}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:1rem}
+.card-title{font-size:.75rem;color:var(--subtext);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem;font-weight:500;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.hunt-preset{padding:.5rem .65rem;border-radius:5px;cursor:pointer;border:1px solid transparent;margin-bottom:.3rem;transition:all .15s;font-size:.78rem;line-height:1.4}
+.hunt-preset:hover{background:#1c2128;border-color:var(--border)}
+.hunt-preset.active{background:#0d1f2d;border-color:#58a6ff44}
+.hunt-preset-title{color:var(--text);font-weight:500;margin-bottom:.15rem}
+.hunt-preset-desc{color:var(--subtext);font-size:.7rem}
+.hunt-preset-badge{display:inline-block;padding:.05rem .35rem;border-radius:3px;font-size:.62rem;font-weight:700;margin-left:.3rem}
+.badge-red{background:rgba(248,81,73,.18);color:var(--red)}
+.badge-orange{background:rgba(210,153,34,.18);color:var(--orange)}
+.badge-blue{background:rgba(88,166,255,.18);color:var(--accent)}
+.main-area{display:flex;flex-direction:column;gap:.75rem}
+.query-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:1rem}
+.query-bar{display:flex;gap:.5rem;margin-bottom:.75rem}
+.query-input{flex:1;background:#0d1117;border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.5rem .85rem;font-size:.82rem;font-family:monospace;outline:none;transition:border-color .15s}
+.query-input:focus{border-color:var(--accent)}
+.btn{padding:.45rem 1rem;border-radius:6px;border:none;font-size:.78rem;font-weight:600;cursor:pointer;transition:background .15s;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.btn-hunt{background:#1d6fe5;color:#fff}
+.btn-hunt:hover{background:#1558c0}
+.btn-clear{background:#21262d;color:var(--subtext);border:1px solid var(--border)}
+.btn-clear:hover{color:var(--text)}
+.filter-row{display:flex;gap:.5rem;flex-wrap:wrap}
+.filter-group{display:flex;flex-direction:column;gap:.2rem;min-width:120px}
+.filter-label{font-size:.65rem;color:var(--subtext);text-transform:uppercase;letter-spacing:.05em;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.filter-input{background:#0d1117;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:.35rem .55rem;font-size:.75rem;outline:none;font-family:monospace}
+.filter-input:focus{border-color:var(--accent)}
+.results-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:1rem;flex:1}
+.results-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+.results-title{font-size:.75rem;color:var(--subtext);text-transform:uppercase;letter-spacing:.06em;font-weight:500;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.results-count{font-size:.75rem;color:var(--accent);font-family:monospace}
+.table-wrap{overflow-x:auto;max-height:400px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:.75rem}
+th{color:var(--subtext);font-weight:500;text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);white-space:nowrap;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+td{padding:.4rem .6rem;border-bottom:1px solid #1c2128;color:var(--subtext);vertical-align:middle;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:hover td{background:#1c2128}
+.sev{display:inline-block;padding:.08rem .4rem;border-radius:3px;font-size:.65rem;font-weight:700}
+.sev-CRITICAL{background:rgba(248,81,73,.2);color:var(--red)}
+.sev-HIGH{background:rgba(210,153,34,.2);color:var(--orange)}
+.sev-MEDIUM{background:rgba(63,185,80,.2);color:var(--green)}
+.sev-LOW{background:rgba(88,166,255,.2);color:var(--accent)}
+.sev-INFO{background:rgba(100,100,100,.2);color:var(--subtext)}
+.ip{color:var(--accent);font-family:monospace}
+.user{color:#79c0ff}
+.score-bar{display:inline-block;background:#21262d;border-radius:2px;height:5px;width:50px;vertical-align:middle;margin-left:.3rem;overflow:hidden}
+.score-fill{height:100%;border-radius:2px;background:var(--green)}
+.score-fill.high{background:var(--orange)}
+.score-fill.crit{background:var(--red)}
+.hunt-stats{display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap}
+.hunt-stat{background:#0d1117;border:1px solid var(--border);border-radius:5px;padding:.3rem .65rem;font-size:.72rem;color:var(--subtext);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.hunt-stat b{color:var(--text)}
+.state-msg{text-align:center;padding:2.5rem;color:var(--subtext);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.state-msg .icon{font-size:2rem;margin-bottom:.5rem}
+.running{color:var(--accent);animation:blink .8s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.mitre{display:inline-block;background:#0d1f2d;color:var(--accent);border:1px solid #58a6ff33;border-radius:3px;padding:.05rem .35rem;font-size:.65rem;font-family:monospace;margin:.05rem}
+</style>
+</head>
+<body>
+<h1>Threat Hunting Console</h1>
+<p class="subtitle">Proactively search for threats before alerts fire — query, correlate, investigate</p>
+<div class="hunt-layout">
+  <div class="sidebar">
+    <div class="card">
+      <div class="card-title">Saved Hunt Presets</div>
+      <div class="hunt-preset" onclick="loadPreset('brute_force',this)"><div class="hunt-preset-title">Brute Force Hunt<span class="hunt-preset-badge badge-red">HIGH</span></div><div class="hunt-preset-desc">Users with failed logon indicators</div></div>
+      <div class="hunt-preset" onclick="loadPreset('off_hours',this)"><div class="hunt-preset-title">Off-Hours Access<span class="hunt-preset-badge badge-orange">MED</span></div><div class="hunt-preset-desc">Logins between midnight and 5am UTC</div></div>
+      <div class="hunt-preset" onclick="loadPreset('high_risk',this)"><div class="hunt-preset-title">High Risk Users<span class="hunt-preset-badge badge-red">HIGH</span></div><div class="hunt-preset-desc">Events with risk score above 200</div></div>
+      <div class="hunt-preset" onclick="loadPreset('lateral',this)"><div class="hunt-preset-title">Lateral Movement<span class="hunt-preset-badge badge-red">HIGH</span></div><div class="hunt-preset-desc">SMB or RDP lateral movement indicators</div></div>
+      <div class="hunt-preset" onclick="loadPreset('new_processes',this)"><div class="hunt-preset-title">Suspicious Processes<span class="hunt-preset-badge badge-orange">MED</span></div><div class="hunt-preset-desc">Process creation events (Event 4688)</div></div>
+      <div class="hunt-preset" onclick="loadPreset('all_critical',this)"><div class="hunt-preset-title">All Critical Events<span class="hunt-preset-badge badge-red">CRIT</span></div><div class="hunt-preset-desc">Every event scored CRITICAL</div></div>
+      <div class="hunt-preset" onclick="loadPreset('unique_ips',this)"><div class="hunt-preset-title">Unique Source IPs<span class="hunt-preset-badge badge-blue">INFO</span></div><div class="hunt-preset-desc">All distinct source IPs seen</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Hunt History</div>
+      <div id="hunt-history" style="font-size:.72rem;color:var(--subtext)">No hunts run yet</div>
+    </div>
+  </div>
+  <div class="main-area">
+    <div class="query-card">
+      <div class="query-bar">
+        <input class="query-input" id="query-input" placeholder="Search: username, IP, reason, host, event_id..."/>
+        <button class="btn btn-hunt" onclick="runHunt()">&#128269; Hunt</button>
+        <button class="btn btn-clear" onclick="clearHunt()">Clear</button>
+      </div>
+      <div class="filter-row">
+        <div class="filter-group"><span class="filter-label">Min Risk Score</span><input class="filter-input" id="f-risk" type="number" placeholder="0"/></div>
+        <div class="filter-group"><span class="filter-label">Username</span><input class="filter-input" id="f-user" placeholder="any"/></div>
+        <div class="filter-group"><span class="filter-label">Source IP</span><input class="filter-input" id="f-ip" placeholder="any"/></div>
+        <div class="filter-group"><span class="filter-label">Event ID</span><input class="filter-input" id="f-eid" placeholder="any"/></div>
+        <div class="filter-group"><span class="filter-label">Hour (UTC)</span><input class="filter-input" id="f-hour" type="number" placeholder="any" min="0" max="23"/></div>
+        <div class="filter-group"><span class="filter-label">MITRE Technique</span><input class="filter-input" id="f-mitre" placeholder="T1110"/></div>
+      </div>
+    </div>
+    <div class="results-card">
+      <div class="results-header">
+        <span class="results-title">Hunt Results</span>
+        <span class="results-count" id="results-count"></span>
+      </div>
+      <div id="hunt-stats" class="hunt-stats"></div>
+      <div id="results-body"><div class="state-msg"><div class="icon">&#128269;</div><div>Run a hunt or select a preset to begin</div></div></div>
+    </div>
+  </div>
+</div>
+<script>
+const socket=io();
+let allEvents=[];
+let huntHistory=[];
+fetch('/events').then(r=>r.json()).then(data=>{allEvents=data||[]});
+socket.on('new_event',e=>{allEvents.unshift(e)});
+const PRESETS={
+  brute_force:{query:'failed',risk:0,user:'',ip:'',eid:'',hour:'',mitre:''},
+  off_hours:{query:'',risk:0,user:'',ip:'',eid:'',hour:'',mitre:'',custom:'off_hours'},
+  high_risk:{query:'',risk:200,user:'',ip:'',eid:'',hour:'',mitre:''},
+  lateral:{query:'lateral',risk:0,user:'',ip:'',eid:'',hour:'',mitre:''},
+  new_processes:{query:'',risk:0,user:'',ip:'',eid:'4688',hour:'',mitre:''},
+  all_critical:{query:'',risk:250,user:'',ip:'',eid:'',hour:'',mitre:''},
+  unique_ips:{query:'',risk:0,user:'',ip:'',eid:'',hour:'',mitre:'',custom:'unique_ips'},
+};
+function loadPreset(name,el){
+  document.querySelectorAll('.hunt-preset').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  const p=PRESETS[name];
+  if(!p)return;
+  document.getElementById('query-input').value=p.query||'';
+  document.getElementById('f-risk').value=p.risk||'';
+  document.getElementById('f-user').value=p.user||'';
+  document.getElementById('f-ip').value=p.ip||'';
+  document.getElementById('f-eid').value=p.eid||'';
+  document.getElementById('f-hour').value=p.hour||'';
+  document.getElementById('f-mitre').value=p.mitre||'';
+  runHunt(p.custom);
+}
+function runHunt(custom){
+  const query=document.getElementById('query-input').value.toLowerCase().trim();
+  const minRisk=parseInt(document.getElementById('f-risk').value)||0;
+  const filterUser=document.getElementById('f-user').value.toLowerCase().trim();
+  const filterIP=document.getElementById('f-ip').value.trim();
+  const filterEID=document.getElementById('f-eid').value.trim();
+  const filterHour=document.getElementById('f-hour').value;
+  const filterMitre=document.getElementById('f-mitre').value.toUpperCase().trim();
+  document.getElementById('results-body').innerHTML='<div class="state-msg"><div class="running">&#9889; Hunting...</div></div>';
+  fetch('/events').then(r=>r.json()).then(data=>{
+    allEvents=data||[];
+    let results=[...allEvents];
+    if(custom==='off_hours'){
+      results=results.filter(e=>{if(!e.timestamp)return false;const h=new Date(e.timestamp).getUTCHours();return h>=0&&h<=5});
+    } else if(custom==='unique_ips'){
+      const ipMap={};
+      allEvents.forEach(e=>{const ip=e.source_ip;if(ip&&ip!=='unknown'){if(!ipMap[ip])ipMap[ip]={ip,count:0,users:new Set()};ipMap[ip].count++;if(e.username)ipMap[ip].users.add(e.username)}});
+      renderIPSummary(Object.values(ipMap));return;
+    } else {
+      if(query)results=results.filter(e=>JSON.stringify(e).toLowerCase().includes(query));
+      if(minRisk>0)results=results.filter(e=>(e.risk_score||0)>=minRisk);
+      if(filterUser)results=results.filter(e=>(e.username||'').toLowerCase().includes(filterUser));
+      if(filterIP)results=results.filter(e=>(e.source_ip||'').includes(filterIP));
+      if(filterEID)results=results.filter(e=>String(e.event_id||e.type||'').includes(filterEID));
+      if(filterHour!==''){const h=parseInt(filterHour);results=results.filter(e=>{if(!e.timestamp)return false;return new Date(e.timestamp).getUTCHours()===h})}
+      if(filterMitre)results=results.filter(e=>(e.mitre_techniques||[]).some(t=>{const tid=typeof t==='object'?t.id:String(t);return tid.toUpperCase().includes(filterMitre)}));
+    }
+    results.sort((a,b)=>(b.risk_score||0)-(a.risk_score||0));
+    huntHistory.unshift({label:query||'Custom filter',count:results.length,time:new Date().toLocaleTimeString()});
+    if(huntHistory.length>8)huntHistory.pop();
+    renderHistory();
+    renderResults(results);
+  });
+}
+function clearHunt(){
+  ['query-input','f-risk','f-user','f-ip','f-eid','f-hour','f-mitre'].forEach(id=>document.getElementById(id).value='');
+  document.querySelectorAll('.hunt-preset').forEach(el=>el.classList.remove('active'));
+  document.getElementById('results-body').innerHTML='<div class="state-msg"><div class="icon">&#128269;</div><div>Run a hunt or select a preset to begin</div></div>';
+  document.getElementById('results-count').textContent='';
+  document.getElementById('hunt-stats').innerHTML='';
+}
+function renderResults(results){
+  document.getElementById('results-count').textContent=results.length?`${results.length} result${results.length!==1?'s':''}`:'No results';
+  const crit=results.filter(e=>(e.risk_score||0)>=250).length;
+  const high=results.filter(e=>(e.risk_score||0)>=150&&(e.risk_score||0)<250).length;
+  const users=new Set(results.map(e=>e.username).filter(Boolean));
+  const ips=new Set(results.map(e=>e.source_ip).filter(ip=>ip&&ip!=='unknown'));
+  document.getElementById('hunt-stats').innerHTML=results.length?`<div class="hunt-stat"><b>${crit}</b> Critical</div><div class="hunt-stat"><b>${high}</b> High</div><div class="hunt-stat"><b>${users.size}</b> Users</div><div class="hunt-stat"><b>${ips.size}</b> IPs</div><div class="hunt-stat"><b>${results.length}</b> Events</div>`:'';
+  if(!results.length){document.getElementById('results-body').innerHTML='<div class="state-msg"><div class="icon">&#10003;</div><div>No matching events — hunt returned clean</div></div>';return}
+  const rows=results.slice(0,200).map(e=>{
+    const score=Math.min(e.risk_score||0,999);
+    const pct=Math.round(score/999*100);
+    const fillClass=score>=250?'crit':score>=150?'high':'';
+    const sev=score>=250?'CRITICAL':score>=150?'HIGH':score>=75?'MEDIUM':score>0?'LOW':'INFO';
+    const ts=(e.timestamp||'').slice(0,19).replace('T',' ');
+    const techs=(e.mitre_techniques||[]).slice(0,2).map(t=>{const tid=typeof t==='object'?t.id:String(t);return`<span class="mitre">${tid}</span>`}).join('');
+    const reasons=(e.reasons||[]).slice(0,1).join('')||'—';
+    return`<tr><td style="color:var(--subtext);font-size:.68rem">${ts}</td><td><span class="sev sev-${sev}">${sev}</span></td><td class="user">${e.username||'—'}</td><td class="ip">${e.source_ip||'—'}</td><td style="color:var(--subtext)">${e.event_id||e.type||'—'}</td><td><span style="font-family:monospace">${score}</span><span class="score-bar"><span class="score-fill ${fillClass}" style="width:${pct}%"></span></span></td><td>${techs||'—'}</td><td style="color:var(--subtext);font-size:.68rem">${reasons}</td></tr>`;
+  }).join('');
+  document.getElementById('results-body').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Time</th><th>Severity</th><th>User</th><th>Source IP</th><th>Event ID</th><th>Risk Score</th><th>MITRE</th><th>Top Reason</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function renderIPSummary(ips){
+  ips.sort((a,b)=>b.count-a.count);
+  document.getElementById('results-count').textContent=`${ips.length} unique IPs`;
+  document.getElementById('results-body').innerHTML=`<div class="table-wrap"><table><thead><tr><th>IP Address</th><th>Event Count</th><th>Users</th></tr></thead><tbody>${ips.map(ip=>`<tr><td class="ip">${ip.ip}</td><td style="color:var(--text)">${ip.count}</td><td style="color:var(--subtext)">${[...ip.users].join(', ')||'—'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function renderHistory(){
+  const el=document.getElementById('hunt-history');
+  if(!huntHistory.length){el.innerHTML='No hunts run yet';return}
+  el.innerHTML=huntHistory.map(h=>`<div style="padding:.3rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><span style="color:var(--text)">${h.label}</span><span style="color:var(--accent)">${h.count} hits</span></div>`).join('');
+}
+document.getElementById('query-input').addEventListener('keydown',e=>{if(e.key==='Enter')runHunt()});
+</script>
+</body>
+</html>

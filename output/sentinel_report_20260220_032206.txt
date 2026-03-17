@@ -1,0 +1,34 @@
+=== SENTINEL SECURITY REPORT ===
+Generated: 2026-02-20 03:22:05.566430
+
+Dynamic Loader Test: PASS
+Details: Sentinel module system is working
+
+Windows Event Log Analysis: ERROR
+Details: Command 'powershell Get-WinEvent -LogName Security -MaxEvents 200 | Select-Object Id, TimeCreated, Message | ConvertTo-Json' returned non-zero exit status 255.
+
+Network Exposure Check: WARNING
+Details: External connections detected: 16 active session(s)
+
+Privilege Exposure Check: WARNING
+Details: User is member of Local Administrators
+SeDebugPrivilege is ENABLED (process injection risk)
+SeImpersonatePrivilege is ENABLED (token abuse risk)
+
+Service Exposure Check: WARNING
+Details: Potential remote-related services running:
+Running  RasMan             Remote Access Connection Manager
+Running  RpcSs              Remote Procedure Call (RPC)
+
+Startup Persistence Check: WARNING
+Details: Startup entries detected:
+LGHUB -> "C:\Program Files\LGHUB\system_tray\lghub_system_tray.exe" --minimized
+EpicGamesLauncher -> "C:\Program Files\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe" -silent -launchcontext=boot
+SignalRgb -> "C:\Users\chris\AppData\Local\VortxEngine\SignalRgbLauncher.exe" --silent
+EADM -> "C:\Program Files\Electronic Arts\EA Desktop\EA Desktop\EALauncher.exe" -silent
+MicrosoftEdgeAutoLaunch_0A1E394B2107F9944ED3CB9C6839BC54 -> "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --no-startup-window --win-session-start
+Startup Folder Entry -> desktop.ini
+Startup Folder Entry -> Ollama.lnk
+
+Overall Risk Score: 13
+Risk Level: HIGH

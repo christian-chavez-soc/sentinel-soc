@@ -1,0 +1,43 @@
+{
+    "christianchavez111@live.com": [
+        "STEALTH"
+    ],
+    "testuser": [
+        "STEALTH"
+    ],
+    "attacker": [
+        "WS01",
+        "SERVER01",
+        "DC01",
+        "WORKSTATION-02",
+        "WORKSTATION-01",
+        "LINUX-SERVER-01"
+    ],
+    "chris": [
+        "-"
+    ],
+    "administrator": [
+        "STEALTH",
+        "WORKSTATION-01",
+        "WORKSTATION-02",
+        "LINUX-SERVER-01"
+    ],
+    "Administrator": [
+        "STEALTH"
+    ],
+    "svc_account": [
+        "LINUX-SERVER-01",
+        "WORKSTATION-01",
+        "WORKSTATION-02"
+    ],
+    "bjones": [
+        "LINUX-SERVER-01",
+        "WORKSTATION-01",
+        "WORKSTATION-02"
+    ],
+    "jsmith": [
+        "WORKSTATION-01",
+        "LINUX-SERVER-01",
+        "WORKSTATION-02"
+    ]
+}
